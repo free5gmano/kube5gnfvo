@@ -1,0 +1,26 @@
+cachetools==3.1.1
+certifi== 2019.6.16
+chardet==3.0.4    
+djangorestframework==3.10.1   
+google-auth==1.6.3    
+idna==2.8      
+kubernetes==10.0.0   
+oauthlib==3.0.2    
+Pint==0.9      
+pip==19.2.1   
+pyasn1==0.4.5    
+pyasn1-modules==0.2.5    
+python-dateutil==2.8.0    
+PyYAML==5.1.1    
+requests==2.22.0   
+requests-oauthlib==1.2.0    
+rsa==4.0      
+setuptools==41.0.1   
+six==1.12.0   
+urllib3==1.25.3   
+websocket-client==0.56.0   
+wheel==0.33.4
+etcd3
+Django==2.2
+django-mysql
+mysqlclient
