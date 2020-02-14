@@ -29,9 +29,9 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
-# DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
-# DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
-# DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
+DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
+DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
+DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -104,12 +104,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'kube5gmano',
         'USER': 'root',
-        'PASSWORD': 'password',
-        'HOST': '10.0.1.205',
-        'PORT': '30036',
-        # 'PASSWORD': DATABASE_PASSWORD,
-        # 'HOST': DATABASE_HOST,
-        # 'PORT': DATABASE_PORT,
+        'PASSWORD': DATABASE_PASSWORD,
+        'HOST': DATABASE_HOST,
+        'PORT': DATABASE_PORT,
     }
 }
 
