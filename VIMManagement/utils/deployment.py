@@ -19,23 +19,22 @@ from VIMManagement.utils.kubernetes_api import KubernetesApi
 
 class DeploymentClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
-        self.config_path = kwargs['config_path'] if 'config_path' in kwargs else None
+        self.config_map_mount_path = kwargs['config_map_mount_path'] if 'config_map_mount_path' in kwargs else None
         self.tun = kwargs['tun'] if 'tun' in kwargs else None
-        if 'memory' in kwargs and 'cpu' in kwargs:
-            self.memory = kwargs['memory']
-            self.cpu = kwargs['cpu']
+        if 'virtual_mem_size' in kwargs and 'num_virtual_cpu' in kwargs:
+            self.virtual_mem_size = kwargs['virtual_mem_size']
+            self.num_virtual_cpu = kwargs['num_virtual_cpu']
         self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
-        if 'ports' in kwargs and 'service_name' in kwargs:
+        if 'ports' in kwargs and 'name_of_service' in kwargs:
             self.ports = kwargs['ports']
-            self.service_name = kwargs['service_name']
-        self.mount_path = kwargs['mount_path'] if 'mount_path' in kwargs else None
+            self.name_of_service = kwargs['name_of_service']
+        self.path_of_storage = kwargs['path_of_storage'] if 'path_of_storage' in kwargs else None
         self.command = kwargs['command'] if 'command' in kwargs else None
         self.env = kwargs['env'] if 'env' in kwargs else None
         if 'image' in kwargs and 'replicas' in kwargs:
             self.image = kwargs['image']
             self.replicas = kwargs['replicas']
-        if 'cp_count' in kwargs:
-            self.cp_count = kwargs['cp_count']
+        self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -62,34 +61,44 @@ class DeploymentClient(KubernetesApi):
 
     def _get_deployment_spec(self):
         deployment_match_label = {
-            "app": self.service_name if self.service_name else self.instance_name}
+            "app": self.name_of_service if self.name_of_service else self.instance_name}
         deployment_meta = self.kubernetes_client.V1ObjectMeta(labels=deployment_match_label)
         volume_mounts = list()
         volumes = list()
-        if self.config_path:
-            for _ in self.config_path.split(","):
-                path = os.path.split(_.strip())
+        if self.config_map_mount_path:
+            for _ in self.config_map_mount_path:
+                path = os.path.split(_)
+                if "." not in path[1]:
+                    key_name = path[1]
+                else:
+                    key_name = path[1].split(".")[0]
                 volume_name = "{}-{}".format(
-                    self.instance_name, path[1] if "." not in path[1] else path[1].split(".")[0])
+                    self.instance_name, key_name)
                 volume_mounts.append(self._get_volume_mount(volume_name, _.strip(), path[1]))
                 volumes.append(self._get_volume(
                     name=volume_name, config_map=self.kubernetes_client.V1ConfigMapVolumeSource(
-                        name=volume_name, items=[{"key": path[1], "path": path[1]}])))
+                        name=volume_name, items=[{"key": key_name.lower(), "path": path[1]}])))
 
         init_containers = list()
-        if self.cp_count:
-            deployment_meta.annotations = {'k8s.v1.cni.cncf.io/networks': 'ovs-net-1'}
+        if self.network_name.__len__() > 0:
             env_var = self.kubernetes_client.V1EnvVar(
                 name='POD_NAME', value_from=self.kubernetes_client.V1EnvVarSource(
                     field_ref=self.kubernetes_client.V1ObjectFieldSelector(
                         api_version='v1', field_path='metadata.name')))
-            while self.cp_count:
+            annotations_name = str()
+            for idx, name in enumerate(self.network_name):
+                if idx == self.network_name.__len__() - 1:
+                    annotations_name += name
+                else:
+                    annotations_name += '{},'.format(name)
                 init_containers.append(self.kubernetes_client.V1Container(
-                    name='init-network-client{}'.format(self.cp_count), image='free5gmano/networking-controller',
+                    name='init-network-client{}'.format(self.network_name[idx]),
+                    image='tw0927041027/init-network-setting',
                     command=["./ip_service"], args=['-d', self.instance_name],
                     env=[env_var],
                     security_context=self.kubernetes_client.V1SecurityContext(privileged=True)))
-                self.cp_count -= 1
+
+            deployment_meta.annotations = {'k8s.v1.cni.cncf.io/networks': annotations_name}
 
         security_context = None
         if self.tun:
@@ -102,27 +111,27 @@ class DeploymentClient(KubernetesApi):
                 privileged=True, capabilities=self.kubernetes_client.V1Capabilities(add=["NET_ADMIN", "SYS_TIME"]))
 
         resource = self.kubernetes_client.V1ResourceRequirements(
-            limits={"memory": self.memory, "cpu": self.cpu}, requests={"memory": self.memory, "cpu": self.cpu})
+            limits={"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu},
+            requests={"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu})
 
         container_ports = list()
-        if self.ports and self.service_name:
+        if self.ports and self.name_of_service:
             if isinstance(self.ports, int):
                 container_ports.append(self._get_container_port(self.ports))
             else:
                 container_ports = [self._get_container_port(_.strip()) for _ in self.ports.split(",")]
 
-        if self.mount_path:
+        if self.path_of_storage:
             volume_mounts.append(self._get_volume_mount(
-                name=self.instance_name, mount_path=self.mount_path))
+                name=self.instance_name, mount_path=self.path_of_storage))
             volumes.append(self._get_volume(
                 name=self.instance_name,
                 persistent_volume_claim=self.kubernetes_client.V1PersistentVolumeClaimVolumeSource(
                     claim_name=self.instance_name)))
 
-        command = [_.strip() for _ in self.command.split(',')] if self.command else None
         env = self.env if self.env else None
         container = self.kubernetes_client.V1Container(
-            name=self.instance_name, image=self.image, volume_mounts=volume_mounts, command=command,
+            name=self.instance_name, image=self.image, volume_mounts=volume_mounts, command=self.command,
             env=env, resources=resource, security_context=security_context, ports=container_ports)
         pod_spec = self.kubernetes_client.V1PodSpec(
             containers=[container], volumes=volumes, init_containers=init_containers)
@@ -133,7 +142,8 @@ class DeploymentClient(KubernetesApi):
                 spec=pod_spec, metadata=deployment_meta))
 
     def _get_container_port(self, port):
-        return self.kubernetes_client.V1ContainerPort(container_port=int(port), protocol=self.protocol)
+        return self.kubernetes_client.V1ContainerPort(name=self.name_of_service, container_port=int(port),
+                                                      protocol=self.protocol)
 
     def _get_volume_mount(self, name, mount_path, sub_path=None):
         return self.kubernetes_client.V1VolumeMount(

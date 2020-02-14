@@ -25,8 +25,8 @@ from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
 class CreateService(ProcessVNFInstance):
-    def __init__(self, vnf_package_id, vnf_instance_name):
-        super().__init__(vnf_package_id, vnf_instance_name)
+    def __init__(self, package_id, vnf_instance_name):
+        super().__init__(package_id, vnf_instance_name)
 
     def process_config_map(self, **kwargs):
         with open(kwargs['artifacts_path'], 'r') as artifacts_file_content:
@@ -36,72 +36,60 @@ class CreateService(ProcessVNFInstance):
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
-        vdu = kwargs['vdu']
-        data = {'instance_name': self.vnf_instance_name,
-                'namespace': vdu.namespace,
-                'replicas': vdu.replicas,
-                'image': vdu.image,
-                'command': vdu.command,
-                'mount_path': vdu.storage_path,
-                'config_path': vdu.config_path,
-                'cpu': vdu.num_virtual_cpu,
-                'memory': vdu.virtual_mem_size,
-                'env': vdu.env,
-                'tun': vdu.tun,
-                'protocol': vdu.protocol if vdu.protocol else 'TCP',
-                'ports': vdu.ports,
-                'service_name': vdu.name_of_service,
-                'cp_count': kwargs['cp_count'],
-                'user_public_key': vdu.user_public_key}
-        client = DeploymentClient(**data)
+        network_name = list()
+        self.etcd_client.set_deploy_name(
+            instance_name=self.vnf_instance_name, pod_name=None)
+        for vl_info in list(kwargs['vl']):
+            name = vl_info.properties['network_name']
+            if name != 'default':
+                if vl_info.properties['virtual_link_protocol_data']:
+                    for virtual_link_protocol_data in vl_info.properties['virtual_link_protocol_data']:
+                        if 'cidr' in virtual_link_protocol_data['l3_protocol_data']:
+                            cidr = virtual_link_protocol_data['l3_protocol_data']['cidr']
+                            ip_address_mask = cidr.split('/')
+                            self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
+                else:
+                    if 'max_instances' in kwargs['vdu_info']:
+                        max_instances = kwargs['vdu_info'].pop('max_instances')
+                        [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
+                    else:
+                        [self.etcd_client.create_ip_pool() for _ in range(kwargs['vdu_info']['replicas'])]
+
+                network_name.append(name)
+
+        kwargs['vdu_info']['instance_name'] = self.vnf_instance_name
+        kwargs['vdu_info']['network_name'] = network_name
+        client = DeploymentClient(**kwargs['vdu_info'])
         client.handle_create_or_update()
 
     def process_service(self, **kwargs):
         vdu = kwargs['vdu']
         client = ServiceClient(
-            instance_name=kwargs['vdu'].name_of_service, namespace=vdu.namespace, port=vdu.ports,
-            protocol=vdu.protocol, service_type='NodePort' if vdu.is_export_service == 'True' else 'ClusterIP')
+            instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
+            port=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
+            service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
         client.handle_create_or_update()
 
     def process_persistent_volume_claim(self, **kwargs):
         vdu = kwargs['vdu']
         client = PersistentVolumeClaimClient(
-            instance_name=self.vnf_instance_name, namespace=vdu.namespace, storage_size=vdu.storage_size)
+            instance_name=self.vnf_instance_name, namespace=vdu.attributes['namespace'],
+            storage_size=vdu.requirements['size_of_storage'])
         client.handle_create_or_update()
 
     def process_persistent_volume(self, **kwargs):
         vdu = kwargs['vdu']
-        client = PersistentVolumeClient(instance_name=self.vnf_instance_name, storage_size=vdu.storage_size)
+        client = PersistentVolumeClient(instance_name=self.vnf_instance_name,
+                                        storage_size=vdu.requirements['size_of_storage'])
         client.handle_create_or_update()
+        create_dir("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         vdu = kwargs['vdu']
         scale = kwargs['scale']
         client = HorizontalPodAutoscalerClient(
-            instance_name=self.vnf_instance_name, namespace=vdu.namespace, max_replicas=scale.max_instances,
-            min_replicas=vdu.replicas, target_cpu_utilization_percentage=scale.target_cpu_utilization_percentage)
+            instance_name=self.vnf_instance_name, namespace=vdu.attributes['namespace'],
+            max_replicas=scale['max_instances'],
+            min_replicas=vdu.attributes['replicas'],
+            target_cpu_utilization_percentage=scale['target_cpu_utilization_percentage'])
         client.handle_create_or_update()
-
-    def process_deploy(self, **kwargs):
-        for vdu in self.vdu:
-            instances_count = None
-            for scale_policy in self.scale_policy:
-                if vdu.node_name == scale_policy.node:
-                    instances_count = scale_policy.max_instances
-                    self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale_policy)
-            for cp in self.connect_point:
-                if cp.node == vdu.node_name:
-                    if cp.cidr:
-                        for cidr in cp.cidr:
-                            ip_address_mask = cidr.split('/')
-                            kwargs['etcd_client'].check_valid_static_ip_address(
-                                ip_address_mask[0], ip_address_mask[1])
-                    else:
-                        [kwargs['etcd_client'].create_ip_pool() for _ in
-                         range(instances_count if instances_count else vdu.replicas)]
-            vdu.virtual_mem_size = kwargs['scale_memory'] if 'scale_memory' in kwargs else vdu.virtual_mem_size
-            vdu.num_virtual_cpu = kwargs['scale_cpu'] if 'scale_cpu' in kwargs else vdu.num_virtual_cpu
-            if vdu.storage_path and vdu.storage_size:
-                create_dir("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
-
-            self.process_deployment(vdu=vdu, cp_count=len(self.connect_point))

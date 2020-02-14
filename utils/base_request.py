@@ -48,6 +48,8 @@ class BaseRequest(object):
     def _validate_status(self, respond):
         status_code = str(respond.status_code)[0]
         if status_code[0] == self.USER_ERROR or status_code[0] == self.SERVER_ERROR:
-            raise ValueError(respond.text)
+            # raise ValueError(respond.text)
+            return False
+            # raise ValueError(respond.text)
         else:
             return respond

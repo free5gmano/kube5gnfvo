@@ -14,30 +14,28 @@
 #    under the License.
 
 from abc import abstractmethod
-
-from VnfPackageManagement.serializers import vnf_package_base_path
-from utils.file_manipulation import walk_file
+from utils.etcd_client.etcd_client import EtcdClient
 from utils.process_package.base_package import BasePackage
 
 
 class BaseProcess(BasePackage):
-    def __init__(self, vnf_package_id):
-        self.vnf_package_id = vnf_package_id
+    def __init__(self, package_id):
+        self.package_id = package_id
         super().__init__(self.get_root_path())
+        self.etcd_client = EtcdClient()
+        self.instance_info = self.process_template(self.topology_template)
 
-    def process_definitions(self):
-        self.process_topology_template(self.topology_template)
-        for node_template in self.topology_template.node_templates:
-            self.process_node_template(node_template)
-
-    def get_root_path(self):
-        root, dirs, files = walk_file('{}{}'.format(vnf_package_base_path, self.vnf_package_id), 'package_content')
-        return '{}/{}/'.format(root, dirs.pop(0))
+    def process(self):
+        self.process_instance(self.topology_template)
 
     @abstractmethod
-    def process_node_template(self, node_template):
+    def get_root_path(self):
         pass
 
     @abstractmethod
-    def process_topology_template(self, topology_template):
+    def process_template(self, topology_template):
+        pass
+
+    @abstractmethod
+    def process_instance(self, topology_template):
         pass

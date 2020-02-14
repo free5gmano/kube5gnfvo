@@ -13,52 +13,57 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from abc import abstractmethod
+from utils.tosca_paser.base_template import BaseTemplate
+from utils.tosca_paser.cp_template import CPTemplate
+from utils.tosca_paser.fp_template import FPTemplate
+from utils.tosca_paser.ns_template import NSTemplate
+from utils.tosca_paser.vdu_template import VDUTemplate
+from utils.tosca_paser.vl_template import VLTemplate
+from utils.tosca_paser.vnf_template import VNFTemplate
 
 
-class NodeTemplate(object):
-    TOSCA_TYPE = (TOSCA_VDU, TOSCA_CP, TOSCA_NS, TOSCA_SCALABLE) = \
-        ('tosca.nodes.nfv.Vdu.Compute', 'tosca.nodes.nfv.VduCpd', 'tosca.nodes.nfv.NS', 'tosca.capabilities.Scalable')
-    ATTRIBUTE = (TYPE, PROPERTIES, CAPABILITIES, REQUIREMENTS, ATTRIBUTES, VNFFGD) = \
-        ('type', 'properties', 'capabilities', 'requirements', 'attributes', 'vnffgd')
+class NodeTemplate(BaseTemplate):
 
-    def __init__(self, name, node_templates):
-        self.node_name = name
-        self.templates = node_templates[name]
-        self._validate_fields(self.templates)
-        self._validate_necessary_value(self.templates)
-        self.template_type = self.templates["type"]
-        self._validate_type()
+    def __init__(self, template):
+        self.vnf = list()
+        self.vdu = list()
+        self.vl = list()
+        self.cp = list()
+        self.ns = list()
+        self.fp = list()
+        super().__init__(template)
+        self.integration_vnf = self._Integration_vnf()
 
-    def _validate_fields(self, node_template):
-        for key in node_template.keys():
-            if key not in self.ATTRIBUTE:
-                raise ValueError("node template has illegal attributes")
+    def _assign_template(self, template, name):
+        if self.TOSCA_CP == template.get(self.TYPE):
+            self.cp.append(CPTemplate(template, name))
+        elif self.TOSCA_VDU == template.get(self.TYPE):
+            self.vdu.append(VDUTemplate(template, name))
+        elif self.TOSCA_VNF == template.get(self.TYPE):
+            self.vnf.append(VNFTemplate(template, name))
+        elif self.TOSCA_VL == template.get(self.TYPE):
+            self.vl.append(VLTemplate(template, name))
+        elif self.TOSCA_NS == template.get(self.TYPE):
+            self.ns.append(NSTemplate(template, name))
+        elif self.TOSCA_FP == template.get(self.TYPE):
+            self.fp.append(FPTemplate(template, name))
 
-    def _validate_type(self):
-        if self.template_type not in self.TOSCA_TYPE:
-            raise ValueError("node template type has illegal attributes")
+    def _Integration_vnf(self) -> dict:
+        vnf = dict()
+        vl = self.vl.copy()
+        for cp_info in self.cp:
+            for vdu_info in self.vdu:
+                if cp_info.requirements['virtual_binding'] == vdu_info.name:
+                    if vdu_info.name not in vnf:
+                        vnf[vdu_info.name] = dict()
+                        vnf[vdu_info.name]['info'] = vdu_info
+                        vnf[vdu_info.name]['vl'] = list()
+                        vnf[vdu_info.name]['cp'] = list()
 
-    def _validate_necessary_value(self, node_template):
-        if self.TYPE not in node_template or self.PROPERTIES not in node_template:
-            raise ValueError("node template need type or properties attributes")
+                for vl_info in vl:
+                    if cp_info.requirements['virtual_link'] == vl_info.name:
+                        vnf[vdu_info.name]['vl'].append(vl_info)
+                        vnf[vdu_info.name]['cp'].append(cp_info)
+                        vl.remove(vl_info)
 
-    @abstractmethod
-    def get_properties(self, key):
-        pass
-
-    @abstractmethod
-    def get_capabilities(self, key):
-        pass
-
-    @abstractmethod
-    def get_requirements(self, key):
-        pass
-
-    @abstractmethod
-    def get_type(self):
-        pass
-
-    @abstractmethod
-    def get_attributes(self, key):
-        pass
+        return vnf

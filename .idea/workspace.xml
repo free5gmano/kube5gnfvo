@@ -2,24 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9a7ff212-a60c-4c78-9196-1b8adb0d27a2" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/LICENSE" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/NSLCMOperationOccurrences/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/NSLCMOperationOccurrences/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VIMManagement/utils/deployment.py" beforeDir="false" afterPath="$PROJECT_DIR$/VIMManagement/utils/deployment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VIMManagement/utils/monitor_deployment.py" beforeDir="false" afterPath="$PROJECT_DIR$/VIMManagement/utils/monitor_deployment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/AMF/Definitions/amf.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/AMF/Definitions/amf.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/AMF/TOSCA-Metadata/TOSCA.meta" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/AMF/TOSCA-Metadata/TOSCA.meta" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/HSS/Definitions/hss.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/HSS/Definitions/hss.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/HSS/TOSCA-Metadata/TOSCA.meta" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/HSS/TOSCA-Metadata/TOSCA.meta" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/PCRF/Definitions/pcrf.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/PCRF/Definitions/pcrf.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/PCRF/TOSCA-Metadata/TOSCA.meta" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/PCRF/TOSCA-Metadata/TOSCA.meta" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/SMF/Definitions/smf.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/SMF/Definitions/smf.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/UPF/Definitions/upf.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/UPF/Definitions/upf.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/mongodb/Definitions/mongodb.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/mongodb/Definitions/mongodb.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/vnfpackage/webui/Definitions/webui.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/example/vnfpackage/webui/Definitions/webui.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/os_ma_nfvo/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/os_ma_nfvo/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/process_package/vnf_package.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/process_package/vnf_package.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -94,7 +78,7 @@
     <property name="WebServerToolWindowPanel.toolwindow.show.permissions" value="false" />
     <property name="WebServerToolWindowPanel.toolwindow.show.size" value="false" />
     <property name="database.console.LAST_STATE" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/NSLifecycleManagement/migrations" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -107,15 +91,16 @@
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/NSLifecycleManagement/migrations" />
+      <recent name="$PROJECT_DIR$/VIMManagement/utils" />
+      <recent name="$PROJECT_DIR$/utils" />
+      <recent name="$PROJECT_DIR$/utils/process_package" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/ToscaSample" />
       <recent name="$PROJECT_DIR$/utils" />
       <recent name="$PROJECT_DIR$/VnfPackageManagement/utils" />
-    </key>
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/VIMManagement/utils" />
-      <recent name="$PROJECT_DIR$/utils" />
-      <recent name="$PROJECT_DIR$/utils/process_package" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -130,7 +115,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.base_kubernetes">
+  <component name="RunManager" selected="Python.views (1)">
     <configuration name="base_kubernetes" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="os_ma_nfvo" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -175,28 +160,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="os_ma_nfvo" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/VIMManagement" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/VIMManagement/test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="tosca_paser" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="os_ma_nfvo" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -211,6 +174,28 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/CORD/tosca_paser.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="views (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="os_ma_nfvo" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/NSDManagement" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NSDManagement/views.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -267,11 +252,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.views (1)" />
         <item itemvalue="Python.base_kubernetes" />
         <item itemvalue="Python.deployment" />
         <item itemvalue="Python.tosca_paser" />
         <item itemvalue="Python.views" />
-        <item itemvalue="Python.test" />
       </list>
     </recent_temporary>
   </component>
@@ -404,6 +389,7 @@
       <workItem from="1577968182981" duration="946000" />
       <workItem from="1577969222797" duration="530000" />
       <workItem from="1578311540850" duration="7045000" />
+      <workItem from="1581590584614" duration="17456000" />
     </task>
     <servers />
   </component>

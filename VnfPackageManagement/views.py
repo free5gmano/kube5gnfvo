@@ -23,7 +23,7 @@ from VnfPackageManagement.serializers import VnfPkgInfoSerializer, vnf_package_b
 from utils.file_manipulation import decompress_zip, copy_file, remove_file
 from utils.format_tools import set_request_parameter_to_string
 from utils.process_package.base_package import created, disabled, not_in_use, enabled
-from utils.process_package.vnf_package import PackageVNFInstance
+from utils.process_package.vnf_package import PackageVNF
 
 
 class VNFPackagesViewSet(viewsets.ModelViewSet):
@@ -82,11 +82,11 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
         if 'application/zip' not in request.META['HTTP_ACCEPT']:
             raise APIException(detail='HEAD need to have application/zip value')
 
-        object_path = '{}{}'.format(vnf_package_base_path, instance.id)
-        vnf_package_path = decompress_zip(
-            request.data['file'], object_path + '/package_content/')
-        copy_file(object_path + '/package_content/', object_path + '/vnfd/', 'Definitions')
-        process_vnf_instance = PackageVNFInstance(path=vnf_package_path)
+        vnf_package_path = '{}{}'.format(vnf_package_base_path, instance.id)
+        vnf_package_content_path = decompress_zip(
+            request.data['file'], vnf_package_path + '/package_content/')
+        copy_file(vnf_package_path + "/package_content/", vnf_package_path + "/vnfd/", 'Definitions')
+        process_vnf_instance = PackageVNF(path=vnf_package_content_path)
         input_value = process_vnf_instance.processing_data()
 
         serializer = self.get_serializer(instance, data=input_value)

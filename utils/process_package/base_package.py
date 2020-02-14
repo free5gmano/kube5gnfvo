@@ -32,7 +32,5 @@ class BasePackage(object):
         self.tosca_metadata = read_yaml_file('{}TOSCA-Metadata/TOSCA.meta'.format(self.root_path))
         self.entry_definitions = self.tosca_metadata['Entry-Definitions']
         self.entry_manifest = read_yaml_file(self.root_path + self.tosca_metadata['ETSI-Entry-Manifest'])
-        self.topology_template = ToscaTemplate(
-            read_yaml_file(self.root_path + self.entry_definitions)).topology_template
-        self.entry_artifacts = self.tosca_metadata['ETSI-Entry-Artifacts'] \
-            if 'ETSI-Entry-Artifacts' in self.tosca_metadata else None
+        self.tosca_template = ToscaTemplate(read_yaml_file(self.root_path + self.entry_definitions))
+        self.topology_template = self.tosca_template.topology_template

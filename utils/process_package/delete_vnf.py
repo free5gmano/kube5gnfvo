@@ -25,8 +25,8 @@ from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
 class DeleteService(ProcessVNFInstance):
-    def __init__(self, vnf_package_id, vnf_instance_name):
-        super().__init__(vnf_package_id, vnf_instance_name)
+    def __init__(self, package_id, vnf_instance_name):
+        super().__init__(package_id, vnf_instance_name)
 
     def process_config_map(self, **kwargs):
         client = ConfigMapClient(
@@ -35,18 +35,19 @@ class DeleteService(ProcessVNFInstance):
         client.handle_delete()
 
     def process_deployment(self, **kwargs):
-        data = {'instance_name': self.vnf_instance_name, 'namespace': kwargs['vdu'].namespace}
+        data = {'instance_name': self.vnf_instance_name, 'namespace': kwargs['vdu_info']['namespace']}
         client = DeploymentClient(**data)
         client.handle_delete()
 
     def process_service(self, **kwargs):
         client = ServiceClient(
-            instance_name=kwargs['vdu'].name_of_service, namespace=kwargs['vdu'].namespace)
+            instance_name=kwargs['vdu'].attributes['name_of_service'],
+            namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
 
     def process_persistent_volume_claim(self, **kwargs):
         client = PersistentVolumeClaimClient(
-            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].namespace)
+            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
 
     def process_persistent_volume(self, **kwargs):
@@ -55,14 +56,5 @@ class DeleteService(ProcessVNFInstance):
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         client = HorizontalPodAutoscalerClient(
-            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].namespace)
+            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
-
-    def process_delete(self, **kwargs):
-        for vdu in self.vdu:
-            self.process_deployment(vdu=vdu)
-            for scale in self.scale_policy:
-                if scale.node == vdu.node_name:
-                    self.process_horizontal_pod_autoscaler(vdu=vdu)
-            if vdu.storage_path and vdu.storage_size:
-                remove_file("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))

@@ -47,13 +47,17 @@ class MonitorDeployment(BaseKubernetes):
             pod_dict = PodStatus()
             for event in stream:
                 _type = event['type']
+                if 'name' not in event['object']['metadata']:
+                    continue
                 _name = event['object']['metadata']['name']
                 resource_version = event['object']['metadata']['resourceVersion']
                 _phase = event['object']['status']['phase']
                 if _type == 'DELETED':
                     if _name in list(pod_dict):
                         pod_dict.pop(_name)
-                        EtcdClient(pod_name=_name).release_pod_ip_address()
+                        etcd_client = EtcdClient()
+                        etcd_client.set_deploy_name(pod_name=_name)
+                        etcd_client.release_pod_ip_address()
                 else:
                     pod_dict[_name] = _phase
 
@@ -69,6 +73,8 @@ class MonitorDeployment(BaseKubernetes):
             deployment_dict = DeploymentStatus()
             for event in stream:
                 _type = event['type']
+                if 'name' not in event['object']['metadata']:
+                    continue
                 _name = event['object']['metadata']['name']
                 resource_version = event['object']['metadata']['resourceVersion']
                 replicas = event['object']['spec']['replicas']

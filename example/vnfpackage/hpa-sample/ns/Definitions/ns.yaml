@@ -1,0 +1,15 @@
+tosca_definitions_version: tosca_simple_yaml_1_2
+
+topology_template:
+  node_templates:
+    NS1:
+      type: tosca.nodes.nfv.NS
+      properties:
+        descriptor_id: 2116fd24-83f2-416b-bf3c-ca1964793hpa
+        designer: imac
+        version: 1.0
+        name: hpa-sample
+        invariant_id: 1111-2222-aaaa-dddd
+        constituent_vnfd:
+          - vnfd_id: 2116fd24-83f2-416b-bf3c-ca1964apache
+          - vnfd_id: 2116fd24-83f2-416b-bf3c-ca196busybox
