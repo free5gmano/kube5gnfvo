@@ -13,36 +13,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from utils.tosca_paser.node_template import NodeTemplate
-from utils.tosca_paser.traversal_dict import TraversalDict
+from utils.tosca_paser.entity_template import EntityTemplate
 
 
-class NSTemplate(NodeTemplate):
-    def get_attributes(self, key):
+class NSTemplate(EntityTemplate):
+    NS_PROPERTIES = (DESCRIPTOR_ID, VERSION, DESIGNER, NAME, INVARIANT_ID) = \
+        ('descriptor_id', 'version', 'designer', 'name', 'invariant_id')
+    NS_PROPERTIES_LIST = (CONSTITUENT_VNFD) = 'constituent_vnfd'
+
+    def __init__(self, node_template, name):
+        super().__init__(node_template, name)
+        self.properties = self._get_properties(properties=self.NS_PROPERTIES,
+                                               properties_list=self.NS_PROPERTIES_LIST)
+
+    def _validate_properties(self):
+        if self.PROPERTIES not in self.template:
+            self._value_empty_exception('ns', self.PROPERTIES)
+
+        properties = self.template.get(self.PROPERTIES)
+        for vnf_properties in self.NS_PROPERTIES:
+            if vnf_properties not in properties:
+                self._value_empty_exception('ns properties', vnf_properties)
+
+        return True
+
+    def _validate_artifacts(self):
         pass
 
-    NS_ATTRIBUTE = (DESCRIPTOR_ID, DESIGNER, NAME, INVARIANT_ID, VERSION, CONSTITUENT_VNFD) = \
-        ('descriptor_id', 'designer', 'name', 'invariant_id', 'version', 'constituent_vnfd')
-
-    def __init__(self, name, node_templates):
-        super().__init__(name, node_templates)
-        self.descriptor_id = self.get_properties(self.DESCRIPTOR_ID)
-        self.designer = self.get_properties(self.DESIGNER)
-        self.name = self.get_properties(self.NAME)
-        self.invariant_id = self.get_properties(self.INVARIANT_ID)
-        self.version = self.get_properties(self.VERSION)
-        self.constituent_vnfd = self.get_properties(self.CONSTITUENT_VNFD)
-
-    def get_type(self):
-        return self.TOSCA_NS
-
-    def get_requirements(self, key):
+    def _validate_attributes(self):
         pass
 
-    def get_capabilities(self, key):
+    def _validate_requirements(self):
         pass
 
-    def get_properties(self, key):
-        traversal_dict = TraversalDict(True) if key == self.CONSTITUENT_VNFD else TraversalDict(False)
-        traversal_dict.traversal(self.templates.get(self.PROPERTIES), key)
-        return traversal_dict.result
+    def _validate_capabilities(self):
+        pass

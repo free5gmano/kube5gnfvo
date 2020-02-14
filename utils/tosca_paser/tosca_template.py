@@ -20,24 +20,27 @@ class ToscaTemplate(object):
     ATTRIBUTE = (DEFINITION_VERSION, TOPOLOGY_TEMPLATE) = \
         ('tosca_definitions_version', 'topology_template')
 
-    VERSIONS = 'tosca_simple_yaml_1_0'
+    VERSIONS = 'tosca_simple_yaml_1_0', 'tosca_simple_yaml_1_2'
 
     def __init__(self, vnfd_dict):
         self.template = vnfd_dict
-        if not self._validate_version():
-            raise ValueError('tosca template has illegal attribute')
-
+        self._validate_field()
         self.topology_template = self._topology_template()
 
-    def _validate_version(self):
-        for attribute in self.ATTRIBUTE:
-            if attribute not in self.template:
+    def _validate_field(self):
+        if not self.template:
+            raise ValueError('tosca template is None')
+
+        for field in self.template:
+            if field is self.DEFINITION_VERSION:
+                self._validate_tosca_version()
+            elif field not in self.ATTRIBUTE:
                 raise ValueError('node template type has illegal attribute')
 
-            else:
-                if attribute == self.DEFINITION_VERSION and self.template[attribute] != self.VERSIONS:
-                    raise ValueError('node type has illegal version')
-            return True
+    def _validate_tosca_version(self):
+        version = self.template.get(self.DEFINITION_VERSION)
+        if not version or version is not self.VERSIONS:
+            raise ValueError('node type has illegal version')
 
     def _template_topology_template(self):
         return self.template.get(self.TOPOLOGY_TEMPLATE)

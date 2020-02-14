@@ -13,83 +13,95 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from utils.tosca_paser.node_template import NodeTemplate
-from utils.tosca_paser.traversal_dict import TraversalDict
+from utils.tosca_paser.entity_template import EntityTemplate
 
 
-class VDUTemplate(NodeTemplate):
-    VDU_CAPABILITIES = (VIRTUAL_MEM_SIZE, NUM_VIRTUAL_CPU) = \
-        ('virtual_mem_size', 'num_virtual_cpu')
-    VDU_PROPERTIES = (NAME, NAMESPACE, REPLICAS, IMAGE) = \
-        ('name', 'namespace', 'replicas', 'image')
+class VDUTemplate(EntityTemplate):
+    VDU_CAPABILITIES = (NUM_VIRTUAL_CPU, VIRTUAL_MEM_SIZE) = \
+        ('num_virtual_cpu', 'virtual_mem_size')
+    VDU_PROPERTIES = (NAME, PROVIDER, VERSION, DISK_FORMAT) = \
+        ('name', 'provider', 'version', 'diskFormat')
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
-    VDU_ATTRIBUTES = (KIND, COMMAND, CONFIG_PATH, ENV, TUN, USER_PUBLIC_KEY,
-                      SERVICE_NAME, PORT, IS_EXPORT_SERVICE, PROTOCOL) = \
-        ('kind', 'command', 'config_path', 'env', 'tun', 'user_public_key',
+    VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
+                      NAME_OF_SERVICE, PORTS, IS_EXPORT_SERVICE, PROTOCOL) = \
+        ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
          'name_of_service', 'ports', 'is_export_service', 'protocol')
+    VDU_ATTRIBUTES_LIST = (COMMAND, ENV) = ('command', 'env')
+    VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
+    VDU_ARTIFACTS_TYPE = (SW_IMAGE, ARTIFACTS_FILE) = ('tosca.artifacts.nfv.SwImage', 'tosca.artifacts.File')
 
-    def __init__(self, name, node_templates):
-        super().__init__(name, node_templates)
-        self.name = self.get_properties(self.NAME)
-        self.namespace = self.get_properties(self.NAMESPACE)
-        self.replicas = self.get_properties(self.REPLICAS)
-        self.image = self.get_properties(self.IMAGE)
-        self.virtual_mem_size = self.get_capabilities(self.VIRTUAL_MEM_SIZE)
-        self.num_virtual_cpu = self.get_capabilities(self.NUM_VIRTUAL_CPU)
-        self.storage_type = self.get_requirements(self.STORAGE_TYPE)
-        self.storage_size = self.get_requirements(self.STORAGE_SIZE)
-        self.storage_path = self.get_requirements(self.STORAGE_PATH)
-        self.user_public_key = self.get_attributes(self.USER_PUBLIC_KEY)
-        self.kind = self.get_attributes(self.KIND)
-        self.command = self.get_attributes(self.COMMAND)
-        self.config_path = self.get_attributes(self.CONFIG_PATH)
-        self.env = self.get_attributes(self.ENV)
-        self.tun = self.get_attributes(self.TUN)
-        self.name_of_service = self.get_attributes(self.SERVICE_NAME)
-        self.ports = self.get_attributes(self.PORT)
-        self.is_export_service = self.get_attributes(self.IS_EXPORT_SERVICE)
-        self.protocol = self.get_attributes(self.PROTOCOL)
+    def __init__(self, node_template, name):
+        super().__init__(node_template, name)
+        self.properties = self._get_properties(self.VDU_PROPERTIES)
+        self.capabilities = self._get_capabilities(self.VDU_CAPABILITIES)
+        self.requirements = self._get_requirements(self.VDU_REQUIREMENTS)
+        self.attributes = self._get_attributes(self.VDU_ATTRIBUTES, attributes_list=self.VDU_ATTRIBUTES_LIST)
+        self.artifacts = self._get_artifacts()
 
-    def get_type(self):
-        return self.TOSCA_VDU
+    def _validate_properties(self):
+        if self.PROPERTIES not in self.template:
+            self._value_empty_exception('vdu', self.PROPERTIES)
 
-    def get_attributes(self, key):
-        traversal_dict = TraversalDict(True) if key == self.ENV else TraversalDict(False)
-        traversal_dict.traversal(self.templates.get(self.ATTRIBUTES), key)
-        return traversal_dict.result
+        properties = self.template.get(self.PROPERTIES)
+        if 'sw_image_data' not in properties or not isinstance(properties.get('sw_image_data'), dict):
+            self._value_error_exception('vdu properties', 'sw_image_data')
 
-    def get_requirements(self, key):
-        node_template = self._requirements_node_template()
-        if not node_template:
-            return None
-        traversal_dict = TraversalDict(False)
-        traversal_dict.traversal(node_template, key)
-        return traversal_dict.result
+        sw_image_data = properties.get('sw_image_data')
+        if self.NAME not in sw_image_data or self.PROVIDER not in sw_image_data \
+                or self.VERSION not in sw_image_data or self.DISK_FORMAT not in sw_image_data:
+            self._value_empty_exception('vdu properties sw_image_data',
+                                        '{} or {} or {} or {}'.format(self.NAME, self.PROVIDER, self.VERSION,
+                                                                      self.DISK_FORMAT))
+        return True
 
-    def _requirements_node_template(self):
-        requirements = self.templates.get(self.REQUIREMENTS)
-        if not requirements:
-            return None
-        if 'virtual_storage' not in requirements:
-            raise ValueError("requirements need virtual_storage attributes")
-        return requirements
+    def _validate_capabilities(self):
+        if self.CAPABILITIES not in self.template or \
+                'virtual_compute' not in self.template.get(self.CAPABILITIES):
+            self._value_empty_exception('vdu', self.CAPABILITIES)
 
-    def get_capabilities(self, key):
-        node_template = self._capabilities_node_template()
-        if not node_template:
-            return None
-        traversal_dict = TraversalDict(False)
-        traversal_dict.traversal(self._capabilities_node_template(), key)
-        return traversal_dict.result
+        virtual_compute = self.template.get(self.CAPABILITIES).get('virtual_compute')
+        if self.PROPERTIES not in virtual_compute:
+            self._value_empty_exception('vdu virtual_compute', self.PROPERTIES)
 
-    def _capabilities_node_template(self):
-        capabilities = self.templates.get(self.CAPABILITIES)
-        if capabilities and 'virtual_compute' not in capabilities:
-            raise ValueError("node template capabilities has illegal attribute")
-        return capabilities
+        properties = virtual_compute.get(self.PROPERTIES)
+        if 'virtual_memory' not in properties or 'virtual_cpu' not in properties:
+            self._value_empty_exception('vdu virtual_compute properties', 'virtual_memory and virtual_cpu')
 
-    def get_properties(self, key):
-        traversal_dict = TraversalDict(False)
-        traversal_dict.traversal(self.templates.get(self.PROPERTIES), key)
-        return traversal_dict.result
+        mem = properties.get('virtual_memory')
+        cpu = properties.get('virtual_cpu')
+        if 'virtual_mem_size' not in mem or 'num_virtual_cpu' not in cpu:
+            self._value_empty_exception(
+                'vdu virtual_compute properties virtual_memory or virtual_cpu',
+                'virtual_mem_size and num_virtual_cpu')
+
+        return True
+
+    def _validate_requirements(self):
+        if self.REQUIREMENTS in self.template \
+                and 'virtual_storage' in self.template.get(self.REQUIREMENTS):
+            virtual_storage = self.template.get(self.REQUIREMENTS).get('virtual_storage')
+            if virtual_storage and self.PROPERTIES in virtual_storage:
+                properties = virtual_storage.get(self.PROPERTIES)
+                for requirement in self.VDU_REQUIREMENTS:
+                    if requirement not in properties:
+                        self._value_error_exception('virtual_storage', requirement)
+
+                return True
+
+    def _validate_attributes(self):
+        return True
+
+    def _validate_artifacts(self):
+        if self.ARTIFACTS not in self.template:
+            return False
+
+        artifacts = self.template.get(self.ARTIFACTS)
+        if 'sw_image' not in artifacts:
+            self._value_empty_exception('vdu artifacts', 'sw_image')
+
+        for artifact_name in artifacts:
+            if artifacts.get(artifact_name).get('type') not in self.VDU_ARTIFACTS_TYPE:
+                self._value_error_exception(artifact_name, 'type')
+
+        return True

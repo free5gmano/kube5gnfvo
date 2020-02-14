@@ -13,56 +13,44 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from utils.tosca_paser.node_template import NodeTemplate
-from utils.tosca_paser.traversal_dict import TraversalDict
+from utils.tosca_paser.entity_template import EntityTemplate
 
 
-class CPTemplate(NodeTemplate):
-    CONNECT_POINT_PROPERTIES = (BRIDGE_NAME, INTERFACE_NAME, CIDR) = \
-        ('bridge_name', 'interface_name', 'cidr')
+class CPTemplate(EntityTemplate):
+    CP_PROPERTIES = (LAYER_PROTOCOL) = 'layer_protocol'
+    CP_REQUIREMENTS = (VIRTUAL_BINDING, VIRTUAL_LINK) = ('virtual_binding', 'virtual_link')
 
-    CONNECT_POINT_REQUIREMENTS = (NODE) = 'node'
-
-    def __init__(self, name, node_templates):
-        super().__init__(name, node_templates)
-        self._validate_fields(self.templates)
-        self.bridge_name = self.get_properties(self.BRIDGE_NAME)
-        self.interface_name = self.get_properties(self.INTERFACE_NAME)
-        self.node = self.get_requirements(self.NODE)
-        self.cidr = self.get_properties(self.CIDR)
-
-    def _validate_fields(self, node_template):
-        if self.REQUIREMENTS not in node_template:
-            raise ValueError("connect point need {}".format(self.REQUIREMENTS))
-
-    def get_type(self):
-        return self.TOSCA_CP
-
-    def get_requirements(self, key):
-        traversal_dict = TraversalDict(False)
-        traversal_dict.traversal(self._validate_requirements(), key)
-        return traversal_dict.result
-
-    def _validate_requirements(self):
-        requirements = self.templates.get(self.REQUIREMENTS)
-        if requirements and 'virtual_binding' not in requirements:
-            raise ValueError("node template requirements has illegal attribute")
-        return self.templates.get(self.REQUIREMENTS)
-
-    def get_capabilities(self, key):
-        pass
-
-    def get_properties(self, key):
-        traversal_dict = TraversalDict(True) if key == self.CIDR else TraversalDict(False)
-        traversal_dict.traversal(self.templates.get(self.PROPERTIES), key)
-        return traversal_dict.result
+    def __init__(self, node_template, name):
+        super().__init__(node_template, name)
+        self.properties = self._get_properties(self.CP_PROPERTIES)
+        self.requirements = self._get_requirements(self.CP_REQUIREMENTS)
 
     def _validate_properties(self):
-        properties = self.templates.get(self.PROPERTIES)
-        if properties and 'address_data' not in properties and \
-                'l2_address_data' not in properties['address_data']:
-            raise ValueError("node template properties need address_data or l2_address_data")
-        return self.templates.get(self.PROPERTIES)
+        if self.PROPERTIES not in self.template:
+            self._value_empty_exception('cp', self.PROPERTIES)
 
-    def get_attributes(self, key):
+        properties = self.template.get(self.PROPERTIES)
+        if self.LAYER_PROTOCOL not in properties:
+            self._value_empty_exception('cp properties', self.LAYER_PROTOCOL)
+
+        return True
+
+    def _validate_requirements(self):
+        if self.REQUIREMENTS not in self.template:
+            self._value_empty_exception('cp', self.REQUIREMENTS)
+
+        requirements = self.template.get(self.REQUIREMENTS)
+        if not requirements or self.VIRTUAL_BINDING not in requirements \
+                or self.VIRTUAL_LINK not in requirements:
+            self._value_empty_exception('cp requirements', '{} and {}'.format(self.VIRTUAL_BINDING, self.VIRTUAL_LINK))
+
+        return True
+
+    def _validate_artifacts(self):
+        pass
+
+    def _validate_attributes(self):
+        pass
+
+    def _validate_capabilities(self):
         pass

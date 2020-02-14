@@ -184,7 +184,7 @@ kubectl apply -f mysql-agent.yaml
 
 ### Deploy kube5gnfvo
 ```shell=
-cat <<EOF >./nfvo-agent.yaml
+cat <<EOF >./kube5gnfvo.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -230,5 +230,5 @@ spec:
     app: kube5gnfvo
 EOF
 
-kubectl apply -f NFVO-agent.yaml
+kubectl apply -f kube5gnfvo.yaml
 ```

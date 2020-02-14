@@ -13,57 +13,70 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from utils.tosca_paser.cp_template import CPTemplate
-from utils.tosca_paser.ns_template import NSTemplate
-from utils.tosca_paser.policies_template import PoliciesTemplate
-from utils.tosca_paser.vdu_template import VDUTemplate
+from utils.tosca_paser.group_template import GroupTemplate
+from utils.tosca_paser.node_template import NodeTemplate
+from utils.tosca_paser.policy_template import PolicyTemplate
 
 
 class TopologyTemplate(object):
-    ATTRIBUTE = (NODE_TEMPLATES, POLICIES) = ('node_templates', 'policies')
+    ATTRIBUTE = (NODE_TEMPLATES, POLICIES, GROUP) = ('node_templates', 'policies', 'groups')
 
     def __init__(self, topology_template):
         self.template = topology_template
-        self.policies = None
-        if self.template:
-            self.node_templates = self._node_templates()
-            if self.template.get(self.POLICIES):
-                self.policies = self._policeies_template()
+        self._validate_field()
+        self.node_templates = self._node_templates()
+        self.policies = self._policies_template()
+        self.group = self._group()
+
+    def _validate_field(self):
+        if not self.template:
+            raise ValueError('topology template is None')
+
+        for field in self.template:
+            if field not in self.ATTRIBUTE:
+                raise ValueError('topology template has illegal value')
 
     def _validate_node_templates(self):
         node_templates = self.template.get(self.NODE_TEMPLATES)
         if node_templates and not isinstance(node_templates, dict):
             raise ValueError("node templates type must is dict")
+
         return node_templates
 
-    def _validate_policies_templates(self):
+    def _validate_group_templates(self):
+        group_templates = self.template.get(self.GROUP)
+        if not group_templates:
+            return None
+
+        if not isinstance(group_templates, dict):
+            raise ValueError("groups templates type must is dict")
+
+        return group_templates
+
+    def _validate_policy_templates(self):
         policies_templates = self.template.get(self.POLICIES)
-        if policies_templates and not isinstance(policies_templates, dict):
+        if not policies_templates:
+            return None
+
+        if not isinstance(policies_templates, dict):
             raise ValueError("policies templates type must is dict")
+
         return policies_templates
 
-    # TODO multiple
     def _node_templates(self):
-        node_templates = list()
-        node_template = self._validate_node_templates()
-        if node_template:
-            for name in node_template:
-                node_type = node_template[name]["type"]
-                template = None
-                if 'tosca.nodes.nfv.VduCpd' in node_type:
-                    template = CPTemplate(name, node_template)
-                elif 'tosca.nodes.nfv.Vdu.Compute' in node_type:
-                    template = VDUTemplate(name, node_template)
-                elif 'tosca.nodes.nfv.NS' in node_type:
-                    template = NSTemplate(name, node_template)
-                node_templates.append(template)
-            return node_templates
+        node_templates = self._validate_node_templates()
+        return NodeTemplate(node_templates)
 
-    def _policeies_template(self):
-        policies_templates = list()
-        policies_template = self._validate_policies_templates()
-        if policies_template:
-            for name in policies_template:
-                if 'tosca.capabilities.Scalable' == policies_template[name]["type"]:
-                    policies_templates.append(PoliciesTemplate(name, policies_template))
-            return policies_templates
+    def _group(self):
+        group_templates = self._validate_group_templates()
+        if not group_templates:
+            return None
+
+        return GroupTemplate(group_templates)
+
+    def _policies_template(self):
+        policy_templates = self._validate_policy_templates()
+        if not policy_templates:
+            return None
+
+        return PolicyTemplate(policy_templates)

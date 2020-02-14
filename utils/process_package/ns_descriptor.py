@@ -20,24 +20,17 @@ class NetworkServiceDescriptor(BasePackage):
 
     def __init__(self, path):
         super().__init__(path=path)
-        self.vnffgd = None
-
-    def process_topology_template(self, topology_template):
-        pass
-
-    def process_node_template(self, node_template):
-        if 'tosca.nodes.nfv.NS' in node_template.get_type():
-            self.vnffgd = node_template
+        node_templates = self.topology_template.node_templates
+        self.ns = node_templates.ns[0]
 
     def processing_data(self):
-        ns_info_list = [node_template
-                        for node_template in self.topology_template.node_templates
-                        if 'tosca.nodes.nfv.NS' in node_template.get_type()]
         # TODO multiple NS
-        ns_info = ns_info_list.pop(0)
-        return {'nsdId': ns_info.descriptor_id,
-                'nsdName': ns_info.name,
-                'nsdVersion': ns_info.version,
-                'nsdDesigner': ns_info.designer,
-                'nsdInvariantId': ns_info.invariant_id,
-                'vnfPkgIds': list()}, ns_info.constituent_vnfd
+        return {'nsdId': self.ns.properties['descriptor_id'],
+                'nsdName': self.ns.properties['name'],
+                'nsdVersion': self.ns.properties['version'],
+                'nsdDesigner': self.ns.properties['designer'],
+                'nsdInvariantId': self.ns.properties['invariant_id'],
+                'vnfPkgIds': list()}
+
+    def get_constituent_vnfd(self):
+        return self.ns.properties['constituent_vnfd']

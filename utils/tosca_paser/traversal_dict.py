@@ -15,24 +15,23 @@
 
 
 class TraversalDict(object):
-    def __init__(self, is_list_value):
+    def __init__(self):
         self.result = None
-        self.is_list_value = is_list_value
 
-    def traversal(self, input_dict, input_key):
+    def traversal(self, input_dict, input_key, is_list_value):
         for k, v in input_dict.items():
             if isinstance(v, list):
-                if self.is_list_value and k == input_key:
+                if is_list_value and k == input_key:
                     self.result = v
                     break
                 for val in v:
                     if isinstance(val, dict):
-                        self.traversal(val, input_key)
+                        self.traversal(val, input_key, is_list_value)
                     elif k == input_key:
                         self.result = val
                         break
             elif isinstance(v, dict):
-                self.traversal(v, input_key)
+                self.traversal(v, input_key, is_list_value)
             elif k == input_key:
                 self.result = v
                 break

@@ -86,16 +86,16 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
             raise APIException(detail='HEAD need to have application/zip value')
 
         network_service_path = decompress_zip(
-            request.data["file"], '{}{}'.format(nsd_base_path, instance.id) + "/nsd_content/")
-        process_network_service = NetworkServiceDescriptor(path=network_service_path)
-        nsd_content = process_network_service.processing_data()
-        vnf_descriptor_list = nsd_content[1]
+            request.data["file"], '{}{}'.format(nsd_base_path, instance.id) + '/nsd_content/')
+        network_service_descriptor = NetworkServiceDescriptor(path=network_service_path)
+        nsd_content = network_service_descriptor.processing_data()
         vnfPkgIds_list = list()
-        for vnfd in vnf_descriptor_list:
-            vnfPkgIds_list.append(str(VnfPkgInfo.objects.filter(vnfProductName__iexact=vnfd).last().id))
-        nsd_content[0]['vnfPkgIds'] = json.dumps(vnfPkgIds_list)
+        for vnfd in network_service_descriptor.get_constituent_vnfd():
+            vnfPkgIds_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
 
-        serializer = self.get_serializer(instance, data=nsd_content[0])
+        nsd_content['vnfPkgIds'] = json.dumps(vnfPkgIds_list)
+        serializer = self.get_serializer(instance, data=nsd_content)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(status=status.HTTP_202_ACCEPTED)

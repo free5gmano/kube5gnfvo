@@ -137,8 +137,8 @@ class VnfExtCpInfo(models.Model):
 
 
 class ExtVirtualLinkInfo(models.Model):
-    extVirtualLinkInfo = models.ForeignKey(VnfInstance, null=True, blank=True, on_delete=models.CASCADE,
-                                           related_name='VnfInstance_ExtVirtualLinkInfo')
+    extVirtualLinkInfo = models.ForeignKey(InstantiatedVnfInfo, null=True, blank=True, on_delete=models.CASCADE,
+                                           related_name='InstantiatedVnfInfo_ExtVirtualLinkInfo')
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
 
@@ -340,7 +340,8 @@ class NsCpHandle(models.Model):
     vnffgInfo_nsCpHandle = models.ForeignKey(VnffgInfo, on_delete=models.CASCADE,
                                              related_name='VnffgInfo_NsCpHandle')
     nsLinkPortInfo_nsCpHandle = models.OneToOneField(
-        NsLinkPortInfo, on_delete=models.CASCADE, related_name='NsLinkPortInfo_NsCpHandle')
+        NsLinkPortInfo, null=True, blank=True, unique=True, on_delete=models.CASCADE,
+        related_name='NsLinkPortInfo_NsCpHandle')
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     vnfInstanceId = models.TextField(null=True, blank=True)
     vnfExtCpInstanceId = models.TextField(null=True, blank=True)

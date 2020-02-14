@@ -2,8 +2,8 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="cfa190c4-b4bc-4cef-9436-56a108de565d" name="jerry1" url="http://10.0.1.203">
-        <fileTransfer host="10.0.1.203" port="22" rootFolder="/home/ubuntu" accessType="SFTP">
+      <webServer id="cfa190c4-b4bc-4cef-9436-56a108de565d" name="jerry1" url="http://10.0.1.205">
+        <fileTransfer host="10.0.1.205" port="22" rootFolder="/home/ubuntu" accessType="SFTP">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

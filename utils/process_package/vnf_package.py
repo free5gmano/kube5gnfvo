@@ -13,65 +13,50 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import uuid
-
 from utils.file_manipulation import sha256_hash
 from utils.process_package.base_package import BasePackage
 
 
-class PackageVNFInstance(BasePackage):
+class PackageVNF(BasePackage):
 
     def __init__(self, path=None):
         super().__init__(path)
         self.artifacts_hash = 'SHA-256'
+        node_templates = self.topology_template.node_templates
+        self.vdu = node_templates.vdu[0]
+        self.vnf = node_templates.vnf[0]
 
     def processing_data(self) -> dict:
-        node_templates = self.topology_template.node_templates
-        vdu_list = list()
-        for node_template in node_templates:
-            if 'tosca.nodes.nfv.Vdu.Compute' in node_template.get_type():
-                vdu_list.append(node_template)
-
-        software_images = self.get_software_images(vdu_list)
-
-        result = {'vnfdId': str(uuid.uuid4()),
-                  'vnfProvider': self.tosca_metadata['Created-By'],
-                  'vnfProductName': self.entry_manifest['vnf_product_name'],
-                  'vnfdVersion': self.entry_manifest['vnf_package_version'],
+        result = {'vnfdId': self.vnf.properties['descriptor_id'],
+                  'vnfProvider': self.vnf.properties['provider'],
+                  'vnfProductName': self.vnf.properties['product_name'],
+                  'vnfdVersion': self.vnf.properties['software_version'],
                   'checksum': {'algorithm': 'SHA-256', 'hash': sha256_hash(self.root_path + self.entry_definitions)},
-                  'softwareImages': software_images,
-                  'vnfSoftwareVersion': software_images[0]['version']}
-        if 'ETSI-Entry-Artifacts' in self.tosca_metadata:
-            result['additionalArtifacts'] = self.get_additional_artifacts(
-                self.root_path, self.tosca_metadata['ETSI-Entry-Artifacts'])
+                  'softwareImages': self._get_software_images(),
+                  'vnfSoftwareVersion': self.vdu.properties['version'],
+                  'additionalArtifacts': self._get_additional_artifacts()}
+
         return result
 
-    def get_additional_artifacts(self, base_path, artifacts_path) -> list:
-        return [self.get_artifacts_value(_.strip(), self.artifacts_hash, sha256_hash(base_path + _.strip()))
-                for _ in artifacts_path.split(',')]
+    def _get_additional_artifacts(self) -> list:
+        if self.vdu.artifacts:
+            additional_artifacts = list()
+            for artifact_name in self.vdu.artifacts:
+                artifact = self.vdu.artifacts[artifact_name]
+                if artifact['type'] != self.vdu.SW_IMAGE:
+                    additional_artifacts.append(self._artifacts_info(artifact_name))
 
-    def get_artifacts_value(self, path, algorithm, _hash) -> dict:
-        return {'artifactPath': path,
-                'checksum': {'algorithm': algorithm,
-                             'hash': _hash}}
+            return additional_artifacts
+        return list()
 
-    # image kind: provide/image_name:version
-    # example: ubuntu:16.04, free5gmano/free5gc-base:latest
-    def get_software_images(self, vdu_list: list) -> list:
-        software_images = list()
-        for vdu in vdu_list:
-            image_info = vdu.image.split('/')
-            if len(image_info) > 1:
-                provider = image_info[0]
-                provider_with_version = image_info[1].split(':')
-            else:
-                provider = str()
-                provider_with_version = image_info[0].split(':')
+    def _artifacts_info(self, artifact_name):
+        artifact_path = self.vdu.artifacts[artifact_name]['file']
+        return {'artifactPath': artifact_path,
+                'checksum': {'algorithm': self.artifacts_hash,
+                             'hash': sha256_hash(self.root_path + artifact_path)}}
 
-            software_images.append(
-                {'provider': provider,
-                 'name': provider_with_version[0],
-                 'version': provider_with_version[1] if len(provider_with_version) > 1 else 'latest',
-                 'minRam': vdu.virtual_mem_size,
-                 'diskFormat': 'RAW'})
-        return software_images
+    def _get_software_images(self) -> list:
+        return [{'provider': self.vdu.properties['provider'],
+                 'name': self.vdu.properties['name'],
+                 'version': self.vdu.properties['version'],
+                 'diskFormat': self.vdu.properties['diskFormat']}]
