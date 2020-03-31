@@ -36,29 +36,6 @@ class CreateService(ProcessVNFInstance):
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
-        network_name = list()
-        self.etcd_client.set_deploy_name(
-            instance_name=self.vnf_instance_name, pod_name=None)
-        for vl_info in list(kwargs['vl']):
-            name = vl_info.properties['network_name']
-            if name != 'default':
-                if vl_info.properties['virtual_link_protocol_data']:
-                    for virtual_link_protocol_data in vl_info.properties['virtual_link_protocol_data']:
-                        if 'cidr' in virtual_link_protocol_data['l3_protocol_data']:
-                            cidr = virtual_link_protocol_data['l3_protocol_data']['cidr']
-                            ip_address_mask = cidr.split('/')
-                            self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
-                else:
-                    if 'max_instances' in kwargs['vdu_info']:
-                        max_instances = kwargs['vdu_info'].pop('max_instances')
-                        [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
-                    else:
-                        [self.etcd_client.create_ip_pool() for _ in range(kwargs['vdu_info']['replicas'])]
-
-                network_name.append(name)
-
-        kwargs['vdu_info']['instance_name'] = self.vnf_instance_name
-        kwargs['vdu_info']['network_name'] = network_name
         client = DeploymentClient(**kwargs['vdu_info'])
         client.handle_create_or_update()
 

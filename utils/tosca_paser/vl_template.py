@@ -17,12 +17,12 @@ from utils.tosca_paser.entity_template import EntityTemplate
 
 
 class VLTemplate(EntityTemplate):
-    VL_PROPERTIES = (NETWORK_NAME) = 'network_name'
-    VL_PROPERTIES_LIST = (VIRTUAL_LINK_PROTOCOL_DATA) = 'virtual_link_protocol_data'
+    VL_PROPERTIES = (NETWORK_NAME, BANDWIDTH, CIDR, DHCP_ENABLED) = (
+        'network_name', 'bandwidth', 'cidr', 'dhcp_enabled')
 
     def __init__(self, node_template, name):
         super().__init__(node_template, name)
-        self.properties = self._get_properties(self.VL_PROPERTIES, self.VL_PROPERTIES_LIST)
+        self.properties = self._get_properties(self.VL_PROPERTIES)
 
     def _validate_properties(self):
         if self.PROPERTIES not in self.template:
@@ -30,7 +30,22 @@ class VLTemplate(EntityTemplate):
 
         properties = self.template.get(self.PROPERTIES)
         if self.NETWORK_NAME not in properties:
-            self._value_empty_exception('vl properties', self.NETWORK_NAME)
+            self._value_empty_exception(self.PROPERTIES, self.NETWORK_NAME)
+
+        if 'vl_profile' not in properties:
+            self._value_empty_exception(self.PROPERTIES, 'vl profile')
+
+        vl_profile = properties['vl_profile']
+        if 'virtual_link_protocol_data' not in vl_profile:
+            self._value_empty_exception('vl profile', 'virtual_link_protocol_data')
+
+        virtual_link_protocol_data = vl_profile['virtual_link_protocol_data']
+        if 'l3_protocol_data' not in virtual_link_protocol_data:
+            self._value_empty_exception('virtual link protocol data', 'l3_protocol_data')
+
+        l3_protocol_data = virtual_link_protocol_data['l3_protocol_data']
+        if 'dhcp_enabled' not in l3_protocol_data and 'cidr' not in l3_protocol_data:
+            self._value_empty_exception('virtual link protocol data', 'l3_protocol_data')
 
         return True
 

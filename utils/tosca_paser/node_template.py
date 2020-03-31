@@ -32,6 +32,7 @@ class NodeTemplate(BaseTemplate):
         self.ns = list()
         self.fp = list()
         super().__init__(template)
+        self._validate_vl()
         self.integration_vnf = self._Integration_vnf()
 
     def _assign_template(self, template, name):
@@ -48,6 +49,13 @@ class NodeTemplate(BaseTemplate):
         elif self.TOSCA_FP == template.get(self.TYPE):
             self.fp.append(FPTemplate(template, name))
 
+    def _validate_vl(self):
+        if self.vnf.__len__() > 0:
+            for vl in self.vl:
+                if 'management' == vl.properties['network_name']:
+                    return
+            self._value_empty_exception('VLTemplate', 'management network name')
+
     def _Integration_vnf(self) -> dict:
         vnf = dict()
         vl = self.vl.copy()
@@ -57,13 +65,12 @@ class NodeTemplate(BaseTemplate):
                     if vdu_info.name not in vnf:
                         vnf[vdu_info.name] = dict()
                         vnf[vdu_info.name]['info'] = vdu_info
-                        vnf[vdu_info.name]['vl'] = list()
-                        vnf[vdu_info.name]['cp'] = list()
+                        vnf[vdu_info.name]['net'] = list()
 
-                for vl_info in vl:
-                    if cp_info.requirements['virtual_link'] == vl_info.name:
-                        vnf[vdu_info.name]['vl'].append(vl_info)
-                        vnf[vdu_info.name]['cp'].append(cp_info)
-                        vl.remove(vl_info)
-
+                    for vl_info in vl:
+                        if cp_info.requirements['virtual_link'] == vl_info.name:
+                            integration_net = dict()
+                            integration_net[vl_info] = cp_info
+                            vnf[vdu_info.name]['net'].append(integration_net)
+                            vl.remove(vl_info)
         return vnf

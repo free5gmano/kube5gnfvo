@@ -29,69 +29,41 @@ class EntityTemplate(BaseTemplate):
     def _assign_template(self, template, name):
         pass
 
-    def _get_properties(self, properties=None, properties_list=None):
+    def _get_properties(self, properties=None, properties_list=None, properties_dict=None):
         if not self._validate_properties():
             return None
 
-        _properties = dict()
-        if properties:
-            self.traversal_value(properties, self.PROPERTIES, _properties, False)
-
-        if properties_list:
-            self.traversal_value(properties_list, self.PROPERTIES, _properties, True)
-
-        return _properties
+        return self.collect_resquest(properties, self.PROPERTIES, properties_list, properties_dict)
 
     @abstractmethod
     def _validate_properties(self):
         pass
 
-    def _get_capabilities(self, capabilities=None, capabilities_list=None):
+    def _get_capabilities(self, capabilities=None, capabilities_list=None, capabilities_dict=None):
         if not self._validate_capabilities():
             return None
 
-        _capabilities = dict()
-        if capabilities:
-            self.traversal_value(capabilities, self.CAPABILITIES, _capabilities, False)
-
-        if capabilities_list:
-            self.traversal_value(capabilities_list, self.CAPABILITIES, _capabilities, True)
-
-        return _capabilities
+        return self.collect_resquest(capabilities, self.CAPABILITIES, capabilities_list, capabilities_dict)
 
     @abstractmethod
     def _validate_capabilities(self):
         pass
 
-    def _get_requirements(self, requirements=None, requirements_list=None):
+    def _get_requirements(self, requirements=None, requirements_list=None, requirements_dict=None):
         if not self._validate_requirements():
             return None
 
-        _requirements = dict()
-        if requirements:
-            self.traversal_value(requirements, self.REQUIREMENTS, _requirements, False)
-
-        if requirements_list:
-            self.traversal_value(requirements_list, self.REQUIREMENTS, _requirements, True)
-
-        return _requirements
+        return self.collect_resquest(requirements, self.REQUIREMENTS, requirements_list, requirements_dict)
 
     @abstractmethod
     def _validate_requirements(self):
         pass
 
-    def _get_attributes(self, attributes=None, attributes_list=None):
+    def _get_attributes(self, attributes=None, attributes_list=None, attributes_dict=None):
         if not self._validate_attributes():
             return None
 
-        _attributes = dict()
-        if attributes:
-            self.traversal_value(attributes, self.ATTRIBUTES, _attributes, False)
-
-        if attributes_list:
-            self.traversal_value(attributes_list, self.ATTRIBUTES, _attributes, True)
-
-        return _attributes
+        return self.collect_resquest(attributes, self.ATTRIBUTES, attributes_list, attributes_dict)
 
     @abstractmethod
     def _validate_attributes(self):
@@ -114,13 +86,27 @@ class EntityTemplate(BaseTemplate):
     def _validate_artifacts(self):
         pass
 
-    def traversal_value(self, input_value, range_key, result_dict, is_list):
+    def traversal_value(self, input_value, range_key, result_dict, is_list, is_dict):
         if isinstance(input_value, tuple) or isinstance(input_value, list):
             for key in input_value:
                 traversal_dict = TraversalDict()
-                traversal_dict.traversal(self.template.get(range_key), key, is_list)
+                traversal_dict.traversal(self.template.get(range_key), key, is_list, is_dict)
                 result_dict[key] = traversal_dict.result
         else:
             traversal_dict = TraversalDict()
-            traversal_dict.traversal(self.template.get(range_key), input_value, is_list)
+            traversal_dict.traversal(self.template.get(range_key), input_value, is_list, is_dict)
             result_dict[input_value] = traversal_dict.result
+
+    def collect_resquest(self, data=None, _attribute=None, data_list=None, data_dict=None):
+        result = dict()
+        if data:
+            self.traversal_value(data, _attribute, result, False, False)
+
+        if data_list:
+            self.traversal_value(data_list, _attribute, result, True, False)
+
+        if data_dict:
+            self.traversal_value(data_dict, _attribute, result, False, True)
+
+        return result
+
