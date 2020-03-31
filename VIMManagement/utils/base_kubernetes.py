@@ -69,3 +69,5 @@ class BaseKubernetes(object):
         self.lock = threading.Lock()
         self.rbac_authorization_v1 = self.kubernetes_client.RbacAuthorizationV1Api()
         self.auto_scaling_v1 = self.kubernetes_client.AutoscalingV1Api()
+        self.deployment_status = DeploymentStatus()
+        self.pod_status = PodStatus()

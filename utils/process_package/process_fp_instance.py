@@ -29,10 +29,10 @@ class ProcessFPInstance(BaseProcess):
         root, dirs, files = walk_file('{}{}'.format(nsd_base_path, self.package_id), 'nsd_content')
         return '{}/{}/'.format(root, dirs.pop(0))
 
-    def process_template(self, topology_template):
+    def process_template(self, **kwargs):
         instance_info = list()
-        node_template = topology_template.node_templates
-        group = topology_template.group
+        node_template = self.topology_template.node_templates
+        group = self.topology_template.group
         if not group:
             return None
         vnffgs = group.vnffg
@@ -53,23 +53,13 @@ class ProcessFPInstance(BaseProcess):
         return instance_info
 
     def process_instance(self, topology_template):
-        for vnffg in self.instance_info:
+        for vnffg in self.process_template():
             if not self._read_vnffg(vnffg):
                 self.register_vnffg(vnffg)
-            response_rsp = dict()
-            response_rsp['rsp'] = list()
-
-            for ns_instance_name in vnffg['rsp']:
-                self.etcd_client.set_deploy_name(instance_name=ns_instance_name.split('.')[0])
-                response_rsp_cell = dict()
-                response_rsp_cell['fqdn'] = ns_instance_name
-                response_rsp_cell['ip'] = self.etcd_client.get_specific_saved_ip_address()
-                response_rsp['rsp'].append(response_rsp_cell)
-            self.onos_client.notification_sfc(response_rsp)
 
     # id to fqdn
     def mapping_rsp(self, vnfd_id, vnf_instance_name):
-        for vnffg in self.instance_info:
+        for vnffg in self.process_template():
             position = [i for i, x in enumerate(vnffg['rsp']) if x == vnfd_id]
             if position.__len__() > 0:
                 vnffg['rsp'].insert(position[0], vnf_instance_name.lower() + '.imac.edu')
@@ -86,7 +76,6 @@ class ProcessFPInstance(BaseProcess):
         onos_parameter['classifier'] = {"source": vnffg['source'],
                                         "destination": vnffg['destination']}
         onos_parameter['rsp'] = vnffg['rsp']
-        self.onos_client.register_sfc(body=onos_parameter)
 
     def _read_vnffg(self, vnffg):
         onos_parameter = dict()
@@ -95,7 +84,7 @@ class ProcessFPInstance(BaseProcess):
         return self.onos_client.read_sfc(body=onos_parameter)
 
     def remove_vnffg(self):
-        for vnffg in self.instance_info:
+        for vnffg in self.process_template():
             onos_parameter = dict()
             onos_parameter['classifier'] = {"source": vnffg['source'],
                                             "destination": vnffg['destination']}

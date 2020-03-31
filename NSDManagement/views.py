@@ -89,11 +89,11 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
             request.data["file"], '{}{}'.format(nsd_base_path, instance.id) + '/nsd_content/')
         network_service_descriptor = NetworkServiceDescriptor(path=network_service_path)
         nsd_content = network_service_descriptor.processing_data()
-        vnfPkgIds_list = list()
+        vnf_pkg_ids_list = list()
         for vnfd in network_service_descriptor.get_constituent_vnfd():
-            vnfPkgIds_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
+            vnf_pkg_ids_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
 
-        nsd_content['vnfPkgIds'] = json.dumps(vnfPkgIds_list)
+        nsd_content['vnfPkgIds'] = json.dumps(vnf_pkg_ids_list)
         serializer = self.get_serializer(instance, data=nsd_content)
         serializer.is_valid(raise_exception=True)
         serializer.save()

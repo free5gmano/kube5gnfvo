@@ -24,7 +24,6 @@ import hashlib
 
 
 def walk_file(path, key):
-    print(path)
     for root, dirs, files in os.walk(path):
         if key in root:
             return root, dirs, files

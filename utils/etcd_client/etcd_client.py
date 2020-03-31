@@ -77,7 +77,7 @@ class EtcdClient(object):
             self._put_valid_ip_address('{}-{}'.format(ip_address, mask))
         else:
             if ip_address in used_ip_address:
-                raise ValueError('CIDR used')
+                print('CIDR used')
             self._put_valid_ip_address('{}-{}'.format(ip_address, mask))
 
     def _put_valid_ip_address(self, ip_address):

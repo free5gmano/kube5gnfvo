@@ -23,17 +23,16 @@ class BaseProcess(BasePackage):
         self.package_id = package_id
         super().__init__(self.get_root_path())
         self.etcd_client = EtcdClient()
-        self.instance_info = self.process_template(self.topology_template)
 
     def process(self):
-        self.process_instance(self.topology_template)
+        return self.process_instance(self.topology_template)
 
     @abstractmethod
     def get_root_path(self):
         pass
 
     @abstractmethod
-    def process_template(self, topology_template):
+    def process_template(self, **kwargs):
         pass
 
     @abstractmethod

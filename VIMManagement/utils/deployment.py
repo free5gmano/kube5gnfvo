@@ -35,6 +35,10 @@ class DeploymentClient(KubernetesApi):
             self.image = kwargs['image']
             self.replicas = kwargs['replicas']
         self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
+        self.labels = kwargs['labels'] if 'labels' in kwargs and isinstance(kwargs['labels'], dict) else None
+        self.requests = kwargs['requests'] if 'requests' in kwargs and isinstance(kwargs['requests'], dict) else None
+        self.limits = kwargs['limits'] if 'limits' in kwargs and isinstance(kwargs['limits'], dict) else None
+
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -55,7 +59,7 @@ class DeploymentClient(KubernetesApi):
     def instance_specific_resource(self, **kwargs):
         deployment = self.kubernetes_client.V1Deployment(api_version="apps/v1", kind="Deployment")
         deployment.metadata = self.kubernetes_client.V1ObjectMeta(
-            name=self.instance_name, namespace=self.namespace)
+            name=self.instance_name, namespace=self.namespace, labels=self.labels)
         deployment.spec = self._get_deployment_spec()
         return deployment
 
@@ -69,9 +73,9 @@ class DeploymentClient(KubernetesApi):
             for _ in self.config_map_mount_path:
                 path = os.path.split(_)
                 if "." not in path[1]:
-                    key_name = path[1]
+                    key_name = path[1].lower()
                 else:
-                    key_name = path[1].split(".")[0]
+                    key_name = path[1].split(".")[0].lower()
                 volume_name = "{}-{}".format(
                     self.instance_name, key_name)
                 volume_mounts.append(self._get_volume_mount(volume_name, _.strip(), path[1]))
@@ -87,16 +91,18 @@ class DeploymentClient(KubernetesApi):
                         api_version='v1', field_path='metadata.name')))
             annotations_name = str()
             for idx, name in enumerate(self.network_name):
-                if idx == self.network_name.__len__() - 1:
-                    annotations_name += name
-                else:
-                    annotations_name += '{},'.format(name)
-                init_containers.append(self.kubernetes_client.V1Container(
-                    name='init-network-client{}'.format(self.network_name[idx]),
-                    image='tw0927041027/init-network-setting',
-                    command=["./ip_service"], args=['-d', self.instance_name],
-                    env=[env_var],
-                    security_context=self.kubernetes_client.V1SecurityContext(privileged=True)))
+                for net, need_config in name.items():
+                    if idx == self.network_name.__len__() - 1:
+                        annotations_name += net
+                    else:
+                        annotations_name += '{},'.format(net)
+                    if need_config:
+                        init_containers.append(self.kubernetes_client.V1Container(
+                            name='init-network-client{}'.format(net),
+                            image='tw0927041027/init-network-setting',
+                            command=["./ip_service"], args=['-d', self.instance_name, '-n', 'net{}'.format(idx + 1)],
+                            env=[env_var],
+                            security_context=self.kubernetes_client.V1SecurityContext(privileged=True)))
 
             deployment_meta.annotations = {'k8s.v1.cni.cncf.io/networks': annotations_name}
 
@@ -110,9 +116,17 @@ class DeploymentClient(KubernetesApi):
             security_context = self.kubernetes_client.V1SecurityContext(
                 privileged=True, capabilities=self.kubernetes_client.V1Capabilities(add=["NET_ADMIN", "SYS_TIME"]))
 
+        limits = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
+        requests = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
+        if self.requests:
+            requests.update(self.requests)
+
+        if self.limits:
+            limits.update(self.limits)
+
         resource = self.kubernetes_client.V1ResourceRequirements(
-            limits={"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu},
-            requests={"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu})
+            limits=limits,
+            requests=requests)
 
         container_ports = list()
         if self.ports and self.name_of_service:

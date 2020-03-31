@@ -27,6 +27,7 @@ class VDUTemplate(EntityTemplate):
                       NAME_OF_SERVICE, PORTS, IS_EXPORT_SERVICE, PROTOCOL) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
          'name_of_service', 'ports', 'is_export_service', 'protocol')
+    VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
     VDU_ATTRIBUTES_LIST = (COMMAND, ENV) = ('command', 'env')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
     VDU_ARTIFACTS_TYPE = (SW_IMAGE, ARTIFACTS_FILE) = ('tosca.artifacts.nfv.SwImage', 'tosca.artifacts.File')
@@ -36,7 +37,8 @@ class VDUTemplate(EntityTemplate):
         self.properties = self._get_properties(self.VDU_PROPERTIES)
         self.capabilities = self._get_capabilities(self.VDU_CAPABILITIES)
         self.requirements = self._get_requirements(self.VDU_REQUIREMENTS)
-        self.attributes = self._get_attributes(self.VDU_ATTRIBUTES, attributes_list=self.VDU_ATTRIBUTES_LIST)
+        self.attributes = self._get_attributes(self.VDU_ATTRIBUTES, attributes_list=self.VDU_ATTRIBUTES_LIST,
+                                               attributes_dict=self.VDU_ATTRIBUTES_DICT)
         self.artifacts = self._get_artifacts()
 
     def _validate_properties(self):

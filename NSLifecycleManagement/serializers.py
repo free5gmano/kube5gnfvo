@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import json
 
 from rest_framework import serializers
@@ -54,10 +53,28 @@ class ExtVirtualLinkInfoSerializer(serializers.ModelSerializer):
         fields = ('id', 'extLinkPorts')
 
 
+class IpAddressesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IpAddresses
+        fields = ('type', 'addresses', 'isDynamic')
+
+
+class IpOverEthernetAddressInfoSerializer(serializers.ModelSerializer):
+    ipAddresses = IpAddressesSerializer(
+        many=True, required=False, source='IpOverEthernetAddressInfo_IpAddresses')
+
+    class Meta:
+        model = IpOverEthernetAddressInfo
+        fields = ('ipAddresses',)
+
+
 class CpProtocolInfoSerializer(serializers.ModelSerializer):
+    ipOverEthernet = IpOverEthernetAddressInfoSerializer(
+        required=False, source='CpProtocolInfo_IpOverEthernetAddressInfo')
+
     class Meta:
         model = CpProtocolInfo
-        fields = ('layerProtocol',)
+        fields = ('layerProtocol', 'ipOverEthernet')
 
 
 class VnfExtCpInfoSerializer(serializers.ModelSerializer):
@@ -114,7 +131,6 @@ class NsInstanceSerializer(serializers.ModelSerializer):
         ns = NsInstance.objects.create(**validated_data)
         NsInstanceLinks.objects.create(
             _links=ns, **{'link_self': link_value['link_self'] + str(ns.id)})
-
         vnffg_vl_id = list()
         for vnf_Instance_value in vnf_Instance_dict:
             instantiated_vnfInfo = vnf_Instance_value.pop('VnfInstance_instantiatedVnfInfo')
@@ -127,7 +143,19 @@ class NsInstanceSerializer(serializers.ModelSerializer):
                 vnf_ext_cp_info = VnfExtCpInfo.objects.create(
                     **{'extCpInfo': instantiated_vnf_info, **ext_cp_info})
                 for cp_protocol_info in cp_protocol_info_dict:
+                    ip_over_ethernet_address_info_dict = cp_protocol_info.pop(
+                        'CpProtocolInfo_IpOverEthernetAddressInfo')
                     cp_protocol = CpProtocolInfo.objects.create(**cp_protocol_info)
+                    ip_over_ethernet_address_info = IpOverEthernetAddressInfo.objects.create(
+                        ipOverEthernet=cp_protocol)
+                    for ip_over_ethernet_address in \
+                            ip_over_ethernet_address_info_dict['IpOverEthernetAddressInfo_IpAddresses']:
+                        ip_address_dict = {'type': ip_over_ethernet_address['type'],
+                                           'isDynamic': ip_over_ethernet_address['isDynamic']}
+                        if 'addresses' in ip_over_ethernet_address:
+                            ip_address_dict['addresses'] = ip_over_ethernet_address['addresses']
+                        ip_address = IpAddresses.objects.create(**ip_address_dict)
+                        ip_over_ethernet_address_info.IpOverEthernetAddressInfo_IpAddresses.add(ip_address)
                     vnf_ext_cp_info.VnfExtCpInfo_CpProtocolInfo.add(cp_protocol)
                 ext_virtual_link_info = ExtVirtualLinkInfo.objects.create()
                 ext_link_port_info = ExtLinkPortInfo.objects.create(**{"cpInstanceId": vnf_ext_cp_info.id})
@@ -142,15 +170,16 @@ class NsInstanceSerializer(serializers.ModelSerializer):
                 if vnf_Instance_value['vnfdId'] in vnffg['vnfInstanceId']:
                     vnffg['vnfInstanceId'].append(str(vnf_Instance.id))
                     vnffg['vnfInstanceId'].remove(vnf_Instance_value['vnfdId'])
-                    instantiated_vnf_info = vnf_Instance.VnfInstance_instantiatedVnfInfo
-                    vl = instantiated_vnf_info.InstantiatedVnfInfo_ExtVirtualLinkInfo.all()
-                    vnffg_vl_id += [str(vl_info.id) for vl_info in vl]
-
                     cp = instantiated_vnf_info.InstantiatedVnfInfo_VnfExtCpInfo.all()
                     for cp_info in cp:
                         for ns_cp_handle in vnffg['VnffgInfo_NsCpHandle']:
                             if ns_cp_handle['vnfExtCpInstanceId'] == cp_info.cpdId:
                                 ns_cp_handle['vnfExtCpInstanceId'] = cp_info.id
+                                for vnf_vl in instantiated_vnf_info.InstantiatedVnfInfo_ExtVirtualLinkInfo.all():
+                                    for vl_port in vnf_vl.ExtVirtualLinkInfo_ExtLinkPortInfo.all():
+                                        if vl_port.cpInstanceId == str(cp_info.id):
+                                            vnffg_vl_id.append(str(vnf_vl.id))
+                                            break
                                 ns_cp_handle['vnfInstanceId'] = vnf_Instance.id
                                 break
 
