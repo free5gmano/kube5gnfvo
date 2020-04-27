@@ -114,9 +114,9 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='instantiate')
     def instantiate_ns(self, request, **kwargs):
         ns_instance = self.get_object()
-        # if not_instantiated != ns_instance.nsState:
-        #     raise APIException(detail='Network Service Instance State have been {}'.format(not_instantiated),
-        #                        code=status.HTTP_409_CONFLICT)
+        if not_instantiated != ns_instance.nsState:
+            raise APIException(detail='Network Service Instance State have been {}'.format(not_instantiated),
+                               code=status.HTTP_409_CONFLICT)
 
         vnf_instance_list = list()
         vnf_instance_data = request.data.pop('vnfInstanceData')
@@ -227,9 +227,9 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='terminate')
     def terminate_ns(self, request, **kwargs):
         ns_instance = self.get_object()
-        # if instantiated != ns_instance.nsState:
-        #     raise APIException(detail='Network Service instance State have been {}'.format(instantiated),
-        #                        code=status.HTTP_409_CONFLICT)
+        if instantiated != ns_instance.nsState:
+            raise APIException(detail='Network Service instance State have been {}'.format(instantiated),
+                               code=status.HTTP_409_CONFLICT)
 
         vnf_instance_list = list()
         process_vnffg = None
