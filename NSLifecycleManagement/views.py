@@ -26,13 +26,11 @@ from NSLifecycleManagement.utils.process_vnf_model import get_vnf_instance, crea
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-from VnfPackageManagement.models import VnfPkgInfo
 from utils.etcd_client.etcd_client import EtcdClient
 from utils.process_package.base_package import not_instantiated, instantiated, in_use, not_in_use
 from utils.process_package.create_vnf import CreateService
 from utils.process_package.delete_vnf import DeleteService
 from utils.process_package.process_fp_instance import ProcessFPInstance
-from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
 def get_vnffg(nsd_id) -> list:
@@ -116,9 +114,9 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='instantiate')
     def instantiate_ns(self, request, **kwargs):
         ns_instance = self.get_object()
-        if not_instantiated != ns_instance.nsState:
-            raise APIException(detail='Network Service Instance State have been {}'.format(not_instantiated),
-                               code=status.HTTP_409_CONFLICT)
+        # if not_instantiated != ns_instance.nsState:
+        #     raise APIException(detail='Network Service Instance State have been {}'.format(not_instantiated),
+        #                        code=status.HTTP_409_CONFLICT)
 
         vnf_instance_list = list()
         vnf_instance_data = request.data.pop('vnfInstanceData')
@@ -132,7 +130,7 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             vnf_instance.VnfInstance_instantiatedVnfInfo.save()
             create_network_service = \
                 CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
-            create_network_service.process()
+            create_network_service.process_instance()
 
             vnf_instance_list.append(vnf_instance)
             if process_vnffg:
@@ -229,9 +227,9 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='terminate')
     def terminate_ns(self, request, **kwargs):
         ns_instance = self.get_object()
-        if instantiated != ns_instance.nsState:
-            raise APIException(detail='Network Service instance State have been {}'.format(instantiated),
-                               code=status.HTTP_409_CONFLICT)
+        # if instantiated != ns_instance.nsState:
+        #     raise APIException(detail='Network Service instance State have been {}'.format(instantiated),
+        #                        code=status.HTTP_409_CONFLICT)
 
         vnf_instance_list = list()
         process_vnffg = None
@@ -243,7 +241,7 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             vnf_instance.VnfInstance_instantiatedVnfInfo.save()
             delete_network_service = \
                 DeleteService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
-            delete_network_service.process()
+            delete_network_service.process_instance()
             self.etcd_client.set_deploy_name(instance_name=vnf_instance.vnfInstanceName.lower(), pod_name=None)
             self.etcd_client.release_pod_ip_address()
             vnf_instance_list.append(vnf_instance)

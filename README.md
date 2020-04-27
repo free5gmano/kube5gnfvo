@@ -46,7 +46,7 @@ ovs-vsctl add-br br1
 ##### Or follow the instructions
 ```shell=
 cd kube5gnfvo/example/
-kubectl apply -f ovs-cni.yml
+kubectl apply -f ovs-cni.yaml
 ```
 ##### Create a NetworkAttachmentDefinition
 ```shell=

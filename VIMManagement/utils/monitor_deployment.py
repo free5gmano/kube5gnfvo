@@ -38,8 +38,6 @@ class MonitorDeployment(BaseKubernetes):
     #     ).start()
 
     def _get_pod_event(self, resource_version):
-        # resource_version = None
-        # while True:
         if resource_version is None:
             stream = self.watch.stream(partial(self.core_v1.list_pod_for_all_namespaces), timeout_seconds=5)
         else:
@@ -68,30 +66,25 @@ class MonitorDeployment(BaseKubernetes):
                         if 'waiting' in state and \
                                 'CrashLoopBackOff' == state['waiting']['reason']:
                             # alarm
-                            self.pod_crash_event(_name)
+                            self.pod_crash_event(None, _name)
                         else:
-                            self.pod_status[_name] = status['state']
-
-            elif _type == 'DELETED' and 'deletionTimestamp' in _metadata:
-                self.pod_crash_event(_name)
+                            self.pod_status[_name] = _phase
+            elif _type == 'DELETED' and _name in list(
+                    self.pod_status) and 'deletionTimestamp' in _metadata:
+                self.pod_crash_event(_name, None)
             else:
-                if 'containerStatuses' in _status:
-                    container_status = _status['containerStatuses']
-                    for status in container_status:
-                        if 'state' not in status:
-                            continue
-                        self.pod_status[_name] = status['state']
+                self.pod_status[_name] = _phase
+
         return resource_version
 
-    def pod_crash_event(self, pod_name):
-        if pod_name in list(self.pod_status):
+    def pod_crash_event(self, instance_name, pod_name):
+        if pod_name:
             self.pod_status.pop(pod_name)
-            self.etcd_client.set_deploy_name(instance_name=None, pod_name=pod_name)
-            self.etcd_client.release_pod_ip_address()
+
+        self.etcd_client.set_deploy_name(instance_name=instance_name, pod_name=pod_name)
+        self.etcd_client.release_pod_ip_address()
 
     def _get_deployment_event(self, resource_version):
-        # resource_version = None
-        # while True:
         if resource_version is None:
             stream = self.watch.stream(partial(self.app_v1.list_deployment_for_all_namespaces), timeout_seconds=5)
         else:

@@ -17,15 +17,17 @@ from abc import abstractmethod
 from utils.etcd_client.etcd_client import EtcdClient
 from utils.process_package.base_package import BasePackage
 
+from abc import abstractmethod
+
+from utils.etcd_client.etcd_client import EtcdClient
+from utils.process_package.base_package import BasePackage
+
 
 class BaseProcess(BasePackage):
     def __init__(self, package_id):
         self.package_id = package_id
         super().__init__(self.get_root_path())
         self.etcd_client = EtcdClient()
-
-    def process(self):
-        return self.process_instance(self.topology_template)
 
     @abstractmethod
     def get_root_path(self):
@@ -36,5 +38,5 @@ class BaseProcess(BasePackage):
         pass
 
     @abstractmethod
-    def process_instance(self, topology_template):
+    def process_instance(self, **kwargs):
         pass
