@@ -28,6 +28,11 @@ class MonitorVnf(object):
     def set_state(self, ns_id, lcm_operation_type, usage_state):
         ns_instance = NsInstance.objects.filter(id=ns_id).last()
         for vnf_instance in ns_instance.NsInstance_VnfInstance.all():
+            if self.terminate == lcm_operation_type:
+                vnf_instance.instantiationState = 'NOT_INSTANTIATED'
+            else:
+                vnf_instance.instantiationState = 'INSTANTIATED'
+            vnf_instance.save()
             vnf_package = VnfPkgInfo.objects.filter(id=vnf_instance.vnfPkgId).last()
             vnf_package.usageState = usage_state
             vnf_package.save()
