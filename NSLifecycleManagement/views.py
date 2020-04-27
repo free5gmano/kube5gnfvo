@@ -22,17 +22,15 @@ from NSLCMOperationOccurrences.models import NsLcmOpOcc, Links, ResourceChanges
 from NSLifecycleManagement.models import NsInstance
 from NSLifecycleManagement.serializers import NsInstanceSerializer
 from NSLifecycleManagement.utils.monitor_vnf import MonitorVnf
-from NSLifecycleManagement.utils.process_vnf_model import get_vnf_Instance
+from NSLifecycleManagement.utils.process_vnf_model import get_vnf_instance, create_vnf_instance
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-from VnfPackageManagement.models import VnfPkgInfo
 from utils.etcd_client.etcd_client import EtcdClient
 from utils.process_package.base_package import not_instantiated, instantiated, in_use, not_in_use
 from utils.process_package.create_vnf import CreateService
 from utils.process_package.delete_vnf import DeleteService
 from utils.process_package.process_fp_instance import ProcessFPInstance
-from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
 def get_vnffg(nsd_id) -> list:
@@ -95,7 +93,7 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
         request.data['nsInstanceName'] = request.data['nsName']
         request.data['nsInstanceDescription'] = request.data['nsDescription']
         request.data['nsdId'] = request.data['nsdId']
-        request.data['vnfInstance'] = get_vnf_Instance(vnf_pkg_ids)
+        request.data['vnfInstance'] = get_vnf_instance(vnf_pkg_ids)
         request.data['_links'] = {'self': request.build_absolute_uri()}
         request.data['vnffgInfo'] = get_vnffg(nsd_info_id)
 
@@ -128,9 +126,11 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
 
         for vnf_instance_info in vnf_instance_data:
             vnf_instance = ns_instance.NsInstance_VnfInstance.get(id=vnf_instance_info['vnfInstanceId'])
+            vnf_instance.VnfInstance_instantiatedVnfInfo.vnfState = 'STARTED'
+            vnf_instance.VnfInstance_instantiatedVnfInfo.save()
             create_network_service = \
                 CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
-            create_network_service.process()
+            create_network_service.process_instance()
 
             vnf_instance_list.append(vnf_instance)
             if process_vnffg:
@@ -147,6 +147,83 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_202_ACCEPTED, headers={'Location': ns_instance.NsInstance_links.link_self})
 
+    @action(detail=True, methods=['POST'], url_path='scale')
+    def scale_ns(self, request, **kwargs):
+        ns_instance = self.get_object()
+        if 'INSTANTIATED' != ns_instance.nsState:
+            raise APIException(detail='Network Service instance State have been INSTANTIATE')
+
+        if 'scaleType' not in request.data:
+            raise APIException(detail='scaleType parameter is necessary')
+
+        vnf_instance_list = list()
+        if 'SCALE_VNF' == request.data['scaleType']:
+            for scale_vnf_data in request.data['scaleVnfData']:
+                vnf_instance = ns_instance.NsInstance_VnfInstance.get(id=scale_vnf_data['vnfInstanceId'])
+                if 'SCALE_OUT' == scale_vnf_data['scaleVnfType']:
+                    if 'additionalParams' in scale_vnf_data['scaleByStepData']:
+                        additional_params = scale_vnf_data['scaleByStepData']['additionalParams']
+                        replicas = int(additional_params['replicas']) if 'replicas' in additional_params else None
+                        virtual_mem_size = additional_params[
+                            'virtual_mem_size'] if 'virtual_mem_size' in additional_params else None
+                        num_virtual_cpu = additional_params[
+                            'num_virtual_cpu'] if 'num_virtual_cpu' in additional_params else None
+                        create_network_service = CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
+                        create_network_service.process_instance(
+                            replicas=replicas, virtual_mem_size=virtual_mem_size, num_virtual_cpu=num_virtual_cpu)
+                        vnf_instance_list.append(vnf_instance)
+            set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, 'SCALE')
+            self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.scale,
+                                            vnf_instances=vnf_instance_list,
+                                            container_phase='Running',
+                                            ns_state=instantiated,
+                                            usage_state=in_use)
+            return Response(status=status.HTTP_202_ACCEPTED,
+                            headers={'Location': ns_instance.NsInstance_links.link_self})
+
+    @action(detail=True, methods=['POST'], url_path='update')
+    def update_ns(self, request, **kwargs):
+        ns_instance = self.get_object()
+        if 'INSTANTIATED' != ns_instance.nsState:
+            raise APIException(detail='Network Service instance State have been INSTANTIATE')
+
+        if 'updateType' not in request.data:
+            raise APIException(detail='updateType parameter is necessary')
+
+        vnf_instance_list = list()
+        if request.data['updateType'] == 'ADD_VNF':
+            if 'addVnfInstance' not in request.data and isinstance(request.data['addVnfInstance'], list):
+                raise APIException(detail='Not found removeVnfInstanceId parameter')
+
+            add_vnf_instance = request.data['addVnfInstance']
+            for vnf_instance_request in add_vnf_instance:
+                if 'vnfInstanceId' not in vnf_instance_request:
+                    raise APIException(detail='Error parameter vnfInstanceId')
+
+                # vnfInstanceId (nm -> vnfpkgid)
+                vnf_info = get_vnf_instance([vnf_instance_request['vnfInstanceId']]).pop(0)
+                vnf_instance = create_vnf_instance(vnf_info)
+                ns_instance.NsInstance_VnfInstance.add(vnf_instance)
+                create_network_service = CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
+                create_network_service.process_instance()
+                vnf_instance_list.append(vnf_instance)
+        elif request.data['updateType'] == 'REMOVE_VNF':
+            if 'removeVnfInstanceId' not in request.data:
+                raise APIException(detail='Not found removeVnfInstanceId parameter')
+            vnf_instance = ns_instance.NsInstance_VnfInstance.get(id=request.data['removeVnfInstanceId'])
+            vnf_instance.delete()
+            delete_network_service = DeleteService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
+            delete_network_service.process_instance()
+            vnf_instance_list.append(vnf_instance)
+
+        set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.update)
+        self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.update,
+                                        vnf_instances=vnf_instance_list,
+                                        container_phase='Running',
+                                        ns_state=instantiated,
+                                        usage_state=in_use)
+        return Response(status=status.HTTP_202_ACCEPTED, headers={'Location': ns_instance.NsInstance_links.link_self})
+
     @action(detail=True, methods=['POST'], url_path='terminate')
     def terminate_ns(self, request, **kwargs):
         ns_instance = self.get_object()
@@ -160,9 +237,11 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             process_vnffg = ProcessFPInstance(str(ns_instance.nsdInfoId))
 
         for vnf_instance in ns_instance.NsInstance_VnfInstance.all():
+            vnf_instance.VnfInstance_instantiatedVnfInfo.vnfState = 'STOPPED'
+            vnf_instance.VnfInstance_instantiatedVnfInfo.save()
             delete_network_service = \
                 DeleteService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
-            delete_network_service.process()
+            delete_network_service.process_instance()
             self.etcd_client.set_deploy_name(instance_name=vnf_instance.vnfInstanceName.lower(), pod_name=None)
             self.etcd_client.release_pod_ip_address()
             vnf_instance_list.append(vnf_instance)
@@ -179,4 +258,5 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
 
         if process_vnffg:
             process_vnffg.remove_vnffg()
+
         return Response(status=status.HTTP_202_ACCEPTED, headers={'Location': ns_instance.NsInstance_links.link_self})

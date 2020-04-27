@@ -27,7 +27,6 @@ class ProcessVNFInstance(BaseProcess):
     def __init__(self, package_id, vnf_instance_name=None):
         super().__init__(package_id)
         self.vnf_instance_name = None
-        self.onos_client = ONOSClient()
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
 
@@ -97,30 +96,27 @@ class ProcessVNFInstance(BaseProcess):
         total_vdu_list = list()
         max_instances = None
         node_template = self.topology_template.node_templates
-        policy_template = self.topology_template.policies
         for vnf in node_template.integration_vnf:
             vdu = node_template.integration_vnf[vnf]
-            if policy_template:
-                vdu_scaling = policy_template.vdu_scaling
-                for scale in vdu_scaling:
-                    if vnf in scale.targets:
-                        max_instances = scale.properties['max_instances']
-                        self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties)
-                        break
-            total_vdu_list += self._process_network(vdu['net'], vdu['info'], isTemplate=True,
-                                                    max_instances=max_instances)
+            total_vdu_list += self._process_network(
+                vdu['net'], vdu['info'], isTemplate=True, max_instances=max_instances)
         return total_vdu_list
 
     # need to fix
-    def process_instance(self, topology_template):
-        node_template = topology_template.node_templates
-        policy_template = topology_template.policies
+    def process_instance(self, **kwargs):
+        node_template = self.topology_template.node_templates
+        policy_template = self.topology_template.policies
         max_instances = None
         for vnf in node_template.integration_vnf:
             vdu = node_template.integration_vnf[vnf]
             net_list = vdu['net']
             vdu = vdu['info']
             vdu_info = dict()
+            vdu_info['instance_name'] = self.vnf_instance_name
+            vdu_info.update(vdu.properties)
+            vdu_info.update(vdu.attributes)
+            vdu_info.update(vdu.capabilities)
+
             self.process_artifacts(vdu, vdu_info)
 
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
@@ -140,12 +136,17 @@ class ProcessVNFInstance(BaseProcess):
                         break
 
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
-
-            vdu_info.update(vdu.properties)
-            vdu_info.update(vdu.attributes)
-            vdu_info.update(vdu.capabilities)
-            vdu_info['instance_name'] = self.vnf_instance_name
             vdu_info['network_name'] = network_name_list
+
+            if 'replicas' in kwargs and kwargs['replicas']:
+                vdu_info['replicas'] = kwargs['replicas']
+
+            if 'virtual_mem_size' in kwargs and kwargs['virtual_mem_size']:
+                vdu_info['virtual_mem_size'] = kwargs['virtual_mem_size']
+
+            if 'num_virtual_cpu' in kwargs and kwargs['num_virtual_cpu']:
+                vdu_info['num_virtual_cpu'] = kwargs['num_virtual_cpu']
+
             self.process_deployment(vdu_info=vdu_info)
 
     def process_artifacts(self, vdu, vnf_info):

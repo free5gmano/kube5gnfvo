@@ -40,5 +40,5 @@ class PersistentVolumeClaimClient(KubernetesApi):
             api_version='v1', kind='PersistentVolumeClaim')
         persistent_volume_claim.metadata = self.kubernetes_client.V1ObjectMeta(name=self.instance_name)
         persistent_volume_claim.spec = self.kubernetes_client.V1PersistentVolumeClaimSpec(
-            access_modes=["ReadWriteMany"], resources={"requests": {"storage": self.storage_size}})
+            access_modes=["ReadWriteOnce"], resources={"requests": {"storage": self.storage_size}})
         return persistent_volume_claim

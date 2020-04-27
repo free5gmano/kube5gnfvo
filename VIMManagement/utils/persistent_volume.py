@@ -41,7 +41,7 @@ class PersistentVolumeClient(KubernetesApi):
             api_version='v1', kind='PersistentVolume')
         persistent_volume.metadata = self.kubernetes_client.V1ObjectMeta(name=self.instance_name)
         persistent_volume.spec = self.kubernetes_client.V1PersistentVolumeSpec(
-            capacity={"storage": self.storage_size}, access_modes=["ReadWriteMany"],
+            capacity={"storage": self.storage_size}, access_modes=["ReadWriteOnce"],
             host_path=self.kubernetes_client.V1HostPathVolumeSource(
                 path='{}{}'.format(VOLUME_PATH, self.instance_name)))
         return persistent_volume
