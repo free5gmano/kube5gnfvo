@@ -80,19 +80,7 @@ kubectl apply -f ./
 >Please refer to [Kubernetes Metrics Server Readme](https://github.com/kubernetes-sigs/metrics-server/blob/master/README.md) to deploy metrics server.
 ##### Or follow the instructions
 ```shell=
-git clone https://github.com/kubernetes-incubator/metrics-server
-cd metrics-server/deploy/kubernetes/
-
-vim metrics-server-deployment.yaml
-
-...
-containers:
-...
-  command:
-  - /metrics-server
-  - --kubelet-insecure-tls
-  - --kubelet-preferred-address-types=InternalIP
-...
+cd kube5gnfvo/example/metrics-server/
 kubectl apply -f ./
 ```
 ### Node Exporter
@@ -259,6 +247,17 @@ spec:
         ports:
         - containerPort: 8000
           name: kube5gnfvo
+        volumeMounts:
+        - name: kube5gnfvo-vnf-package
+          mountPath: /root/NSD
+          subPath: NSD
+        - name: kube5gnfvo-vnf-package
+          mountPath: /root/VnfPackage
+          subPath: VnfPackage
+      volumes:
+      - name: kube5gnfvo-vnf-package
+        persistentVolumeClaim:
+          claimName: kube5gnfvo-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -271,6 +270,33 @@ spec:
     nodePort: 30888
   selector:
     app: kube5gnfvo
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kube5gnfvo-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kube5gnfvo-pv
+  labels:
+    type: local
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    type: DirectoryOrCreate
+    path: /mnt/kube5gnfvo
 EOF
 
 kubectl apply -f kube5gnfvo.yaml

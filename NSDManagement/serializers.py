@@ -21,6 +21,7 @@ from utils.format_tools import transform_representation
 from .models import *
 
 nsd_base_path = os.getcwd() + "/NSD/"
+create_dir(nsd_base_path)
 
 
 class ProblemDetailsSerializer(serializers.ModelSerializer):

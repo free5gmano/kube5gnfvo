@@ -26,7 +26,10 @@ from NSLifecycleManagement.utils.process_vnf_model import get_vnf_instance, crea
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
+
+from os_ma_nfvo.settings import VOLUME_PATH
 from utils.etcd_client.etcd_client import EtcdClient
+from utils.file_manipulation import create_dir
 from utils.process_package.base_package import not_instantiated, instantiated, in_use, not_in_use
 from utils.process_package.create_vnf import CreateService
 from utils.process_package.delete_vnf import DeleteService
@@ -77,6 +80,9 @@ def set_ns_lcm_op_occ(ns_instance, request, vnf_instances, lcm_operation_type):
             _links=ns_lcm_op_occ,
             **{'link_self': 'http://{}/nslcm/v1/ns_lcm_op_occs/{}'.format(request.get_host(), ns_lcm_op_occ.id),
                'nsInstance': ns_instance.NsInstance_links.link_self})
+
+
+create_dir(VOLUME_PATH)
 
 
 class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
