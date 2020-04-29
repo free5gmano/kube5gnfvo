@@ -21,6 +21,7 @@ from utils.file_manipulation import create_dir
 from utils.format_tools import transform_representation
 
 vnf_package_base_path = os.getcwd() + "/VnfPackage/"
+create_dir(vnf_package_base_path)
 
 
 class VnfPkgInfoLinksSerializer(serializers.ModelSerializer):
