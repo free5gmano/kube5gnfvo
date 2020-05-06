@@ -48,7 +48,7 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
         return super().list(request)
 
     def update(self, request, *args, **kwargs):
-        if disabled == request.data['operationalState'] or enabled == request.data['operationalState']:
+        if disabled != request.data['operationalState'] and enabled != request.data['operationalState']:
             raise APIException(detail='ValueError: invalid operationalState',
                                code=status.HTTP_409_CONFLICT)
 
