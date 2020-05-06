@@ -194,10 +194,8 @@ kind: Service
 metadata:
   name: kube5gnfvo-mysql
 spec:
-  type: NodePort
   ports:
   - port: 3306
-    nodePort: 30036
   selector:
     app: kube5gnfvo-mysql
 ---
@@ -239,9 +237,9 @@ spec:
         - name: DATABASE_PASSWORD
           value: "password"
         - name: DATABASE_HOST
-          value: "10.0.1.203"
+          value: "kube5gnfvo-mysql"
         - name: DATABASE_PORT
-          value: "30036"
+          value: "3306"
         command: ["/bin/sh","-c"]
         args: ['python3 manage.py migrate && python3 manage.py runserver 0:8000']
         ports:

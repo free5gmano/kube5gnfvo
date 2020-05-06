@@ -51,7 +51,7 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
         if on_boarded != instance.nsdOnboardingState:
             raise APIException(detail='NSD nsdOnboardingState is not {}'.format(on_boarded))
 
-        if disabled == request.data['nsdOperationalState'] or enabled == request.data['nsdOperationalState']:
+        if disabled != request.data['nsdOperationalState'] and enabled != request.data['nsdOperationalState']:
             raise APIException(detail='ValueError: invalid operationalState',
                                code=status.HTTP_409_CONFLICT)
 
