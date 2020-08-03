@@ -74,6 +74,8 @@ kubectl apply -f ovs-net-crd.yaml
 cd kube5gnfvo/example/etcd-cluster/rbac/
 ./create_role.sh
 cd ..
+kubectl apply -f deployment.yaml
+(Please make sure that etcdclusters.etcd.database.coreos.com CRD in Kubernetes has been created)
 kubectl apply -f ./
 ```
 ### Metrics Server
