@@ -308,10 +308,11 @@ kubectl apply -f kube5gnfvo.yaml
 We use POSTMAN to send request to API server. You can download at [here](https://www.postman.com/downloads/).
 ##### Create NS instance
 >Compress files
-
-====Under kube5gnfvo/example/free5gcv1====
+````
+Under kube5gnfvo/example/free5gcv1
+````
 You will see two directories, ns and Vnfpackage.
-Zip ns directory into ns.zip. In  kube5gnfvo/example/free5gcv1/Vnfpackage, you will see seven directories, zip ====each of them==== into .zip file directly.
+Zip ns directory into ns.zip. In  kube5gnfvo/example/free5gcv1/Vnfpackage, you will see seven directories, zip each of them into .zip file directly.
 Now the file structure shown as below:
 ````
 kube5gnfvo/example/free5gcv1
@@ -335,77 +336,78 @@ kube5gnfvo/example/free5gcv1
 ````
 
 >Create and upload VNF packages
-
-====Under kube5gnfvo/example/free5gcv1==== 
+````
+Under kube5gnfvo/example/free5gcv1
+````
 * Create VNF packages
-We send request to API server in ====POST==== method.
+We send request to API server in "POST" method.
 1. You can modify following URL, replace <your server IP> as your IP address, and fill it in the request URL column.
 ````
 http://<your server IP>:30888/vnfpkgm/v1/vnf_packages/
 ````
 ![](https://i.imgur.com/qiqi1cS.png)
 
-Send request to server, you will receive server response ====201 Created====.
+Send request to server, you will receive server response "201 Created".
 
 * Upload VNF packages
 On the previous step, server will respone an id number(see the figure shown below, the red box)
 ![](https://i.imgur.com/ziatPPT.png)
 
-2. Create a new request in ====PUT==== method. 
+2. Create a new request in "PUT" method. 
 Modify following URL, replace <your server IP> as your IP address; <id> as we got in last figure.
 ````
 http://<your server IP>:30888/vnfpkgm/v1/vnf_packages/<id>/package_content/
 ````
 ![](https://i.imgur.com/HxQUc2o.png)
 
-3. Modify the headers of the request. Add two key-value, ====Accept-application/zip==== and ====Accept-application/json==== as following figure shown.
+3. Modify the headers of the request. Add two key-value, "Accept-application/zip" and "Accept-application/json" as following figure shown.
 ![](https://i.imgur.com/jNxaDYw.png)
 
 4. Modify the body of the request. 
-In ====form-data==== format, we add one key-value: "file" is our key and seven .zip files we compressed under /vnfpackages directory is our "value".
+In "form-data" format, we add one key-value: "file" is our key and seven .zip files we compressed under /vnfpackages directory is our "value".
 Remenber to select value type as "file" then you can choose .zip file as your value. To select value type you can find the menu as shown in figure(red box).
-In each request we will upload only ====one==== file.
+In each request we will upload only "one" file.
 
 ![](https://i.imgur.com/vceOJpu.png)
 
-5. Send the request to server, you will get response ====202 Accepted====.
+5. Send the request to server, you will get response "202 Accepted".
 
 6. Repeat step 1 to step 4, each time replace one .zip file under /vnfpackages directory. Not until upload seven .zip file will you go to next step (step 7).
 
 >Create ns descriptor
 
-7. Create a new request in ====POST==== method.
+7. Create a new request in "POST" method.
 Modify following URL, replace <your server IP> as your IP address.
 ````
 http://<your server IP>:30888/nsd/v1/ns_descriptors/
 ````
-Send request to server. You will receive server response ====201 Created====, and an id number as shown in following figure (red box).
+Send request to server. You will receive server response "201 Created", and an id number as shown in following figure (red box).
 ![](https://i.imgur.com/YJXk7WE.png)
 
 >Create and upload ns descriptor
 
-8. Create a new request in ====PUT==== method.
+8. Create a new request in "PUT" method.
 Modify following URL, replace <your server IP> as your IP address; <id> as we got in last figure.
 ````
 http://<your server IP>:30888/nsd/v1/ns_descriptors/<id>/nsd_content/
 ````
 
-9. Modify the headers of the request. Add two key-value, ====Accept-application/zip==== and ====Accept-application/json==== as following figure shown.
+9. Modify the headers of the request. Add two key-value, "Accept-application/zip" and "Accept-application/json" as following figure shown.
 ![](https://i.imgur.com/YUDWd6B.png)
 
-10. Modify the body of the request. In ====form-data==== format, we add one key-value: "file" is our key and "value" is our ns.zip file we comressed before. Also remenber to select type of value as "file"(shown in following figure, red box).
+10. Modify the body of the request. In "form-data" format, we add one key-value: "file" is our key and "value" is our ns.zip file we comressed before. Also remenber to select type of value as "file"(shown in following figure, red box).
 ![](https://i.imgur.com/afmys1R.png)
-Send the request to server, you will receive server response ====202 Accepted====.
+Send the request to server, you will receive server response "202 Accepted".
 
 > Create and instantiate ns instance
 
-11. Create a new request in ====POST==== method.
+11. Create a new request in "POST" method.
 Modify following URL, replace <your server IP> as your IP address.
 ````
 http://<your server IP>:30888/nslcm/v1/ns_instances/
 ````
 
-12. Modify the body of the request. In ===="raw, JSON"==== format, type in following JSON file.
+12. Modify the body of the request. In "raw, JSON" format, type in following JSON file.
 ````
 {
     "nsdId": "2116fd24-83f2-416b-bf3c-ca1964793acb",
@@ -414,16 +416,16 @@ http://<your server IP>:30888/nslcm/v1/ns_instances/
 }
 ````
 ![](https://i.imgur.com/49GufwZ.png)
-Send the request to server, you will receive server response ====201 Created====, and body of response in JSON format. Retain the response, we will use them in next step.
+Send the request to server, you will receive server response "201 Created", and body of response in JSON format. Retain the response, we will use them in next step.
 
-13. Create a new request in ====POST==== method.
+13. Create a new request in "POST" method.
 Modify following URL, replace <your server IP> as your IP address; <id in red box> as we got in last response(as following figure shown, in red box).
 ````
 http://<your server IP>:30888/nslcm/v1/ns_instances/<id in red box>/instantiate/
 ````
 ![](https://i.imgur.com/Q58u21n.png)
 
-14. In request body, we used ====raw, JSON==== format.You can fill in the body as following.
+14. In request body, we used "raw, JSON" format.You can fill in the body as following.
 ````
 {
     "vnfInstanceData":[
@@ -477,4 +479,4 @@ For "vnfInstanceId" fields, you can get them in previous response. The response 
         ......
 }
 ````
-Send the request to server, you will receive server response ====202 Accepted====.
+Send the request to server, you will receive server response "202 Accepted".
