@@ -124,7 +124,7 @@ kubectl apply -f service-account-agent.yaml
 
 ### Deploy Mysql Database
 ```shell=
-cat <<EOF >./mysql-agent.yaml
+cat <<EOF >./kube5gnfvo-mysql.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -177,7 +177,8 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/mnt/data"
+    type: DirectoryOrCreate
+    path: /mnt/kube5gnfvo-mysql
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -210,7 +211,7 @@ data:
     CREATE DATABASE kube5gmano;
 EOF
 
-kubectl apply -f mysql-agent.yaml
+kubectl apply -f kube5gnfvo-mysql.yaml
 ```
 
 ### Deploy kube5gnfvo
@@ -233,7 +234,7 @@ spec:
     spec:
       serviceAccountName: kube5gnfvo
       containers:
-      - image: free5gmano/kube5gnfvo
+      - image: free5gmano/kube5gnfvo-stage1
         name: kube5gnfvo
         env:
         - name: DATABASE_PASSWORD
