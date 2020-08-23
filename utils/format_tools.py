@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import json
 import random
 import string
@@ -25,12 +24,11 @@ def transform_representation(ret):
     return ret
 
 
-def randomString(stringLength=10):
+def random_string(string_length=5):
     letters = string.ascii_lowercase
-    return ''.join(random.sample(letters, stringLength))
+    return ''.join(random.sample(letters, string_length))
 
 
 def set_request_parameter_to_string(request, parameter: str):
-    request.data[parameter] = None
     if parameter in request.data:
         request.data[parameter] = json.dumps(request.data[parameter])

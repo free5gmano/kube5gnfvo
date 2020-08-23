@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from NSDManagement.serializers import nsd_base_path
 from utils.file_manipulation import walk_file
 from utils.onos_client import ONOSClient
@@ -24,6 +23,7 @@ class ProcessFPInstance(BaseProcess):
     def __init__(self, package_id):
         super().__init__(package_id)
         self.onos_client = ONOSClient()
+        self.vnffg_info = self.process_template()
 
     def get_root_path(self):
         root, dirs, files = walk_file('{}{}'.format(nsd_base_path, self.package_id), 'nsd_content')
@@ -35,6 +35,7 @@ class ProcessFPInstance(BaseProcess):
         group = self.topology_template.group
         if not group:
             return None
+
         vnffgs = group.vnffg
         fps = node_template.fp
         for vnffg in vnffgs:
@@ -52,14 +53,14 @@ class ProcessFPInstance(BaseProcess):
                     instance_info.append(vnffg_info)
         return instance_info
 
-    def process_instance(self, topology_template):
-        for vnffg in self.process_template():
+    def process_instance(self, **kwargs):
+        for vnffg in self.vnffg_info:
             if not self._read_vnffg(vnffg):
                 self.register_vnffg(vnffg)
 
     # id to fqdn
     def mapping_rsp(self, vnfd_id, vnf_instance_name):
-        for vnffg in self.process_template():
+        for vnffg in self.vnffg_info:
             position = [i for i, x in enumerate(vnffg['rsp']) if x == vnfd_id]
             if position.__len__() > 0:
                 vnffg['rsp'].insert(position[0], vnf_instance_name.lower() + '.imac.edu')
@@ -84,7 +85,7 @@ class ProcessFPInstance(BaseProcess):
         return self.onos_client.read_sfc(body=onos_parameter)
 
     def remove_vnffg(self):
-        for vnffg in self.process_template():
+        for vnffg in self.vnffg_info:
             onos_parameter = dict()
             onos_parameter['classifier'] = {"source": vnffg['source'],
                                             "destination": vnffg['destination']}

@@ -12,9 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import json
 import os
 from VIMManagement.utils.kubernetes_api import KubernetesApi
+from utils.tosca_paser.cp_template import SR_IOV
 
 
 class DeploymentClient(KubernetesApi):
@@ -36,8 +37,7 @@ class DeploymentClient(KubernetesApi):
             self.replicas = kwargs['replicas']
         self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
         self.labels = kwargs['labels'] if 'labels' in kwargs and isinstance(kwargs['labels'], dict) else None
-        self.requests = kwargs['requests'] if 'requests' in kwargs and isinstance(kwargs['requests'], dict) else None
-        self.limits = kwargs['limits'] if 'limits' in kwargs and isinstance(kwargs['limits'], dict) else None
+        self.sriov_type = 'intel.com/intel_sriov_netdevice'
 
         super().__init__(*args, **kwargs)
 
@@ -69,42 +69,55 @@ class DeploymentClient(KubernetesApi):
         deployment_meta = self.kubernetes_client.V1ObjectMeta(labels=deployment_match_label)
         volume_mounts = list()
         volumes = list()
+        default_mode = None
+
+        limits = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
+        requests = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
+
         if self.config_map_mount_path:
             for _ in self.config_map_mount_path:
                 path = os.path.split(_)
-                if "." not in path[1]:
+                if '.' not in path[1]:
                     key_name = path[1].lower()
                 else:
-                    key_name = path[1].split(".")[0].lower()
-                volume_name = "{}-{}".format(
-                    self.instance_name, key_name)
-                volume_mounts.append(self._get_volume_mount(volume_name, _.strip(), path[1]))
+                    dot_path_list = path[1].split('.')
+                    key_name = dot_path_list[0].lower()
+                    if 'sh' in dot_path_list[1].lower():
+                        default_mode = 0o777
+
+                volume_mounts.append(self._get_volume_mount(key_name, _.strip(), path[1]))
                 volumes.append(self._get_volume(
-                    name=volume_name, config_map=self.kubernetes_client.V1ConfigMapVolumeSource(
-                        name=volume_name, items=[{"key": key_name.lower(), "path": path[1]}])))
+                    name=key_name, config_map=self.kubernetes_client.V1ConfigMapVolumeSource(
+                        name=key_name, items=[{"key": key_name, "path": path[1]}],
+                        default_mode=default_mode)))
 
         init_containers = list()
         if self.network_name.__len__() > 0:
+            sr_iov_count = 0
             env_var = self.kubernetes_client.V1EnvVar(
                 name='POD_NAME', value_from=self.kubernetes_client.V1EnvVarSource(
                     field_ref=self.kubernetes_client.V1ObjectFieldSelector(
                         api_version='v1', field_path='metadata.name')))
             annotations_name = str()
-            for idx, name in enumerate(self.network_name):
-                for net, need_config in name.items():
-                    if idx == self.network_name.__len__() - 1:
-                        annotations_name += net
-                    else:
-                        annotations_name += '{},'.format(net)
-                    if need_config:
-                        init_containers.append(self.kubernetes_client.V1Container(
-                            name='init-network-client{}'.format(net),
-                            image='tw0927041027/init-network-setting',
-                            command=["./ip_service"], args=['-d', self.instance_name, '-n', 'net{}'.format(idx + 1)],
-                            env=[env_var],
-                            security_context=self.kubernetes_client.V1SecurityContext(privileged=True)))
+            for idx, net_info in enumerate(self.network_name):
+                if idx == self.network_name.__len__() - 1:
+                    annotations_name += net_info['network_name']
+                else:
+                    annotations_name += '{},'.format(net_info['network_name'])
+                init_containers.append(self.kubernetes_client.V1Container(
+                    name='init-network-client{}'.format(net_info['network_name']),
+                    image='tw0927041027/init-network-setting',
+                    command=["./ip_service"], args=['-d', self.instance_name, '-n', 'net{}'.format(idx + 1),
+                                                    '-c', json.dumps(net_info['ip_address'])],
+                    env=[env_var],
+                    security_context=self.kubernetes_client.V1SecurityContext(privileged=True)))
+
+                if net_info['type'] == SR_IOV:
+                    sr_iov_count = +1
 
             deployment_meta.annotations = {'k8s.v1.cni.cncf.io/networks': annotations_name}
+            requests.update({self.sriov_type: sr_iov_count})
+            limits.update({self.sriov_type: sr_iov_count})
 
         security_context = None
         if self.tun:
@@ -116,24 +129,14 @@ class DeploymentClient(KubernetesApi):
             security_context = self.kubernetes_client.V1SecurityContext(
                 privileged=True, capabilities=self.kubernetes_client.V1Capabilities(add=["NET_ADMIN", "SYS_TIME"]))
 
-        limits = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
-        requests = {"memory": self.virtual_mem_size, "cpu": self.num_virtual_cpu}
-        if self.requests:
-            requests.update(self.requests)
-
-        if self.limits:
-            limits.update(self.limits)
-
         resource = self.kubernetes_client.V1ResourceRequirements(
             limits=limits,
             requests=requests)
 
         container_ports = list()
         if self.ports and self.name_of_service:
-            if isinstance(self.ports, int):
-                container_ports.append(self._get_container_port(self.ports))
-            else:
-                container_ports = [self._get_container_port(_.strip()) for _ in self.ports.split(",")]
+            for port in self.ports:
+                container_ports.append(self._get_container_port(port))
 
         if self.path_of_storage:
             volume_mounts.append(self._get_volume_mount(
@@ -155,9 +158,11 @@ class DeploymentClient(KubernetesApi):
             template=self.kubernetes_client.V1PodTemplateSpec(
                 spec=pod_spec, metadata=deployment_meta))
 
-    def _get_container_port(self, port):
-        return self.kubernetes_client.V1ContainerPort(name=self.name_of_service, container_port=int(port),
-                                                      protocol=self.protocol)
+    def _get_container_port(self, port: int):
+        return self.kubernetes_client.V1ContainerPort(
+            name='{}{}'.format(self.instance_name[-10:], port),
+            container_port=port,
+            protocol=self.protocol)
 
     def _get_volume_mount(self, name, mount_path, sub_path=None):
         return self.kubernetes_client.V1VolumeMount(

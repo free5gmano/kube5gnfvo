@@ -6,7 +6,6 @@ import uuid
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -34,7 +33,9 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='NsdInfoLinks',
             fields=[
-                ('_links', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, related_name='nsd_info_fk_link', serialize=False, to='NSDManagement.NsdInfo')),
+                ('_links', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True,
+                                                related_name='nsd_info_fk_link', serialize=False,
+                                                to='NSDManagement.NsdInfo')),
                 ('link_self', models.URLField()),
                 ('nsd_content', models.URLField()),
             ],
@@ -48,7 +49,9 @@ class Migration(migrations.Migration):
                 ('status', models.IntegerField()),
                 ('detail', models.TextField()),
                 ('instance', models.URLField(blank=True, null=True)),
-                ('onboardingFailureDetails', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='nsd_info_fk_problem_details', to='NSDManagement.NsdInfo')),
+                ('onboardingFailureDetails',
+                 models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                      related_name='nsd_info_fk_problem_details', to='NSDManagement.NsdInfo')),
             ],
         ),
     ]

@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from utils.tosca_paser.entity_template import EntityTemplate
 
 
@@ -23,8 +22,8 @@ class NSTemplate(EntityTemplate):
 
     def __init__(self, node_template, name):
         super().__init__(node_template, name)
-        self.properties = self._get_properties(properties=self.NS_PROPERTIES,
-                                               properties_list=self.NS_PROPERTIES_LIST)
+        self.properties = self._get_properties(
+            properties=self.NS_PROPERTIES, properties_list=self.NS_PROPERTIES_LIST)
 
     def _validate_properties(self):
         if self.PROPERTIES not in self.template:

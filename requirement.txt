@@ -24,3 +24,4 @@ etcd3
 Django==2.2
 django-mysql
 mysqlclient
+drf_yasg==1.17.0

@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from utils.tosca_paser.group_template import GroupTemplate
 from utils.tosca_paser.node_template import NodeTemplate
 from utils.tosca_paser.policy_template import PolicyTemplate
