@@ -170,7 +170,7 @@ kind: PersistentVolume
 metadata:
   name: kube5gnfvo-mysql
   labels:
-    type: local
+    name: kube5gnfvo-mysql
 spec:
   capacity:
     storage: 20Gi
@@ -191,6 +191,11 @@ spec:
   resources:
     requests:
       storage: 20Gi
+  selector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values: ["kube5gnfvo-mysql"]
 ---
 apiVersion: v1
 kind: Service
@@ -283,13 +288,18 @@ spec:
   resources:
     requests:
       storage: 20Gi
+  selector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values: ["kube5gnfvo"]
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: kube5gnfvo-pv
   labels:
-    type: local
+    name: kube5gnfvo
 spec:
   capacity:
     storage: 20Gi
