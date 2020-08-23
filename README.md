@@ -98,7 +98,7 @@ This section explains an exmaple deployment of Kube5GNfvo in Kubernetes. Require
 
 ### Create kube5gnfvo ServiceAccount
 ```shell=
-cat <<EOF >./service-account-agent.yaml
+cat <<EOF >./kube5gnfvo-sa.yaml
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -119,12 +119,12 @@ metadata:
   name: kube5gnfvo
 EOF
 
-kubectl apply -f service-account-agent.yaml
+kubectl apply -f kube5gnfvo-sa.yaml
 ```
 
 ### Deploy Mysql Database
 ```shell=
-cat <<EOF >./mysql-agent.yaml
+cat <<EOF >./kube5gnfvo-mysql.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -170,14 +170,15 @@ kind: PersistentVolume
 metadata:
   name: kube5gnfvo-mysql
   labels:
-    type: local
+    name: kube5gnfvo-mysql
 spec:
   capacity:
     storage: 20Gi
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/mnt/data"
+    type: DirectoryOrCreate
+    path: /mnt/kube5gnfvo-mysql
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -190,6 +191,11 @@ spec:
   resources:
     requests:
       storage: 20Gi
+  selector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values: ["kube5gnfvo-mysql"]
 ---
 apiVersion: v1
 kind: Service
@@ -210,7 +216,7 @@ data:
     CREATE DATABASE kube5gmano;
 EOF
 
-kubectl apply -f mysql-agent.yaml
+kubectl apply -f kube5gnfvo-mysql.yaml
 ```
 
 ### Deploy kube5gnfvo
@@ -233,7 +239,7 @@ spec:
     spec:
       serviceAccountName: kube5gnfvo
       containers:
-      - image: free5gmano/kube5gnfvo
+      - image: free5gmano/kube5gnfvo-stage1
         name: kube5gnfvo
         env:
         - name: DATABASE_PASSWORD
@@ -282,13 +288,18 @@ spec:
   resources:
     requests:
       storage: 20Gi
+  selector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values: ["kube5gnfvo"]
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: kube5gnfvo-pv
   labels:
-    type: local
+    name: kube5gnfvo
 spec:
   capacity:
     storage: 20Gi
