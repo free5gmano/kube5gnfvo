@@ -1,8 +1,10 @@
 mem = 1 = [mem]
 Ki = 1024 * mem
 Mi = Ki^2
+Gi = Ki^3
 
 cpu = 1 = [cpu]
 m = 1/1000 * cpu
 k = 1000 * cpu
 M = k^2
+G = k^3

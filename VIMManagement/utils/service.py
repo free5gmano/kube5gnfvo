@@ -18,11 +18,9 @@ from VIMManagement.utils.kubernetes_api import KubernetesApi
 
 class ServiceClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
-        if 'service_type' in kwargs and 'port' in kwargs:
-            self.service_type = kwargs['service_type']
-            self.port = kwargs['port']
-        if 'protocol' in kwargs:
-            self.protocol = kwargs['protocol']
+        self.service_type = kwargs['service_type'] if 'service_type' in kwargs else None
+        self.ports = kwargs['ports'] if 'ports' in kwargs else None
+        self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -46,9 +44,8 @@ class ServiceClient(KubernetesApi):
         return service
 
     def _get_service_port(self):
-        return [self._create_service_port(self.port)] if isinstance(self.port, int) \
-            else [self._create_service_port(_.strip()) for _ in self.port.split(",")]
+        return [self._create_service_port(_) for _ in self.ports]
 
-    def _create_service_port(self, port):
+    def _create_service_port(self, port: int):
         return self.kubernetes_client.V1ServicePort(
-            name=self.instance_name, port=int(port), protocol=self.protocol)
+            name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=self.protocol)

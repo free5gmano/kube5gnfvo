@@ -1,10 +1,11 @@
+from os_ma_nfvo.settings import ONOS_IP
 from utils.base_request import BaseRequest
 
 
 class ONOSClient(BaseRequest):
     onos_account = 'onos'
     onos_password = 'rocks'
-    onos_base_uri = 'http://10.0.1.205:8181/onos/sfc/sfc/'
+    onos_base_uri = ONOS_IP
 
     def __init__(self):
         super().__init__(
@@ -13,7 +14,7 @@ class ONOSClient(BaseRequest):
     def register_sfc(self, body: dict):
         self.post('register', data=body)
 
-    def notification_sfc(self, body: dict):
+    def notification_sf_info(self, body: dict):
         self.post('notification', data=body)
 
     def read_sfc(self, body: dict):

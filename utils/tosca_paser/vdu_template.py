@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from utils.tosca_paser.entity_template import EntityTemplate
 
 
@@ -24,11 +23,11 @@ class VDUTemplate(EntityTemplate):
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
-                      NAME_OF_SERVICE, PORTS, IS_EXPORT_SERVICE, PROTOCOL) = \
+                      NAME_OF_SERVICE, IS_EXPORT_SERVICE, PROTOCOL) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
-         'name_of_service', 'ports', 'is_export_service', 'protocol')
+         'name_of_service', 'is_export_service', 'protocol')
     VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
-    VDU_ATTRIBUTES_LIST = (COMMAND, ENV) = ('command', 'env')
+    VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS) = ('command', 'env', 'ports')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
     VDU_ARTIFACTS_TYPE = (SW_IMAGE, ARTIFACTS_FILE) = ('tosca.artifacts.nfv.SwImage', 'tosca.artifacts.File')
 
@@ -92,6 +91,20 @@ class VDUTemplate(EntityTemplate):
                 return True
 
     def _validate_attributes(self):
+        if self.ATTRIBUTES not in self.template:
+            self._value_empty_exception('vnf', self.ATTRIBUTES)
+
+        attributes = self.template.get(self.ATTRIBUTES)
+        if self.NAMESPACE not in attributes and self.REPLICAS not in attributes:
+            self._value_empty_exception(self.ATTRIBUTES, '{} or {}'.format(self.NAMESPACE, self.REPLICAS))
+
+        if self.PORTS in attributes:
+            if not isinstance(attributes[self.PORTS], list):
+                self._value_error_exception(self.ATTRIBUTES, self.PORTS)
+                for port in attributes[self.PORTS]:
+                    if not isinstance(port, int):
+                        self._value_error_exception(self.ATTRIBUTES, self.PORTS)
+
         return True
 
     def _validate_artifacts(self):

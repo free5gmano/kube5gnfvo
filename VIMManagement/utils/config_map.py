@@ -20,10 +20,8 @@ class ConfigMapClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         self.config_file_name = kwargs['config_file_name'] if 'config_file_name' in kwargs else None
         self.config_file_content = kwargs['config_file_content'] if 'config_file_content' in kwargs else None
-        kwargs['instance_name'] = "{}-{}".format(
-            kwargs['instance_name'],
-            self.config_file_name if "." not in self.config_file_name
-            else self.config_file_name.split(".")[0])
+        kwargs['instance_name'] = self.config_file_name if "." not in self.config_file_name else \
+            self.config_file_name.split(".")[0]
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):

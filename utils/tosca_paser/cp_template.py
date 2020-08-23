@@ -12,12 +12,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from utils.tosca_paser.entity_template import EntityTemplate
+
+CNI_TYPE = (SR_IOV, OVS) = ('sr-iov', 'ovs')
 
 
 class CPTemplate(EntityTemplate):
-    CP_PROPERTIES = (LAYER_PROTOCOL) = 'layer_protocol'
+    CP_PROPERTIES = (LAYER_PROTOCOL, CP_TYPE) = ('layer_protocol', 'type')
     CP_REQUIREMENTS = (VIRTUAL_BINDING, VIRTUAL_LINK) = ('virtual_binding', 'virtual_link')
 
     def __init__(self, node_template, name):
@@ -43,6 +44,10 @@ class CPTemplate(EntityTemplate):
         if not requirements or self.VIRTUAL_BINDING not in requirements \
                 or self.VIRTUAL_LINK not in requirements:
             self._value_empty_exception('cp requirements', '{} and {}'.format(self.VIRTUAL_BINDING, self.VIRTUAL_LINK))
+
+        if self.CP_TYPE in self.REQUIREMENTS:
+            if self.REQUIREMENTS[self.CP_TYPE] not in CNI_TYPE:
+                self._value_error_exception(self.REQUIREMENTS, self.CP_TYPE)
 
         return True
 

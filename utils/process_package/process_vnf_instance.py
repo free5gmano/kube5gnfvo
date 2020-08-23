@@ -12,8 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import json
 import os
 from abc import abstractmethod
 from VnfPackageManagement.serializers import vnf_package_base_path
@@ -27,6 +25,7 @@ class ProcessVNFInstance(BaseProcess):
     def __init__(self, package_id, vnf_instance_name=None):
         super().__init__(package_id)
         self.vnf_instance_name = None
+        self.onos_client = ONOSClient()
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
 
@@ -34,7 +33,7 @@ class ProcessVNFInstance(BaseProcess):
         root, dirs, files = walk_file('{}{}'.format(vnf_package_base_path, self.package_id), 'package_content')
         return '{}/{}/'.format(root, dirs.pop(0))
 
-    # need to fix
+    # TODO
     def _process_network(self, net_list, vdu_info, isTemplate=False, max_instances=None):
         self.etcd_client.set_deploy_name(instance_name=self.vnf_instance_name, pod_name=None)
         ip_address = list()
@@ -53,15 +52,14 @@ class ProcessVNFInstance(BaseProcess):
                     cidr = vl_info.properties['cidr']
                     ip_address.append(cidr)
                     ip_address_mask = cidr.split('/')
-                    self.etcd_client.check_valid_static_ip_address(ip_address_mask[0],
-                                                                   ip_address_mask[1])
+                    self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
                 elif vl_info.properties['dhcp_enabled']:
                     dhcp_enabled = True
                     if max_instances:
                         ip_address = [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
                     else:
                         ip_address = [self.etcd_client.create_ip_pool() for _ in
-                                      range(vdu_info.attributes.replicas)]
+                                      range(vdu_info.attributes['replicas'])]
 
                 if isTemplate:
                     vnf_ext_cp_info_info = dict()
@@ -83,26 +81,28 @@ class ProcessVNFInstance(BaseProcess):
 
                     vnf_ext_cp_info_info['cpProtocolInfo'].append(cp_protocol_info)
                     ext_cp_info.append(vnf_ext_cp_info_info)
+
                 if 'management' != vl_info.properties['network_name']:
-                    network_name_list.append({vl_info.properties['network_name']: dhcp_enabled})
+                    network_name_list.append({'network_name': vl_info.properties['network_name'],
+                                              'type': cp_info.properties['type'],
+                                              'ip_address': ip_address})
 
         if isTemplate:
             return ext_cp_info
         else:
             return rate, network_name_list
 
-    # need to fix
+    # TODO
     def process_template(self, **kwargs):
         total_vdu_list = list()
-        max_instances = None
         node_template = self.topology_template.node_templates
         for vnf in node_template.integration_vnf:
             vdu = node_template.integration_vnf[vnf]
             total_vdu_list += self._process_network(
-                vdu['net'], vdu['info'], isTemplate=True, max_instances=max_instances)
+                vdu['net'], vdu['info'], isTemplate=True)
         return total_vdu_list
 
-    # need to fix
+    # TODO
     def process_instance(self, **kwargs):
         node_template = self.topology_template.node_templates
         policy_template = self.topology_template.policies
@@ -137,7 +137,9 @@ class ProcessVNFInstance(BaseProcess):
 
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
+            self.process_onos_sf(rate)
 
+            # update api
             if 'replicas' in kwargs and kwargs['replicas']:
                 vdu_info['replicas'] = kwargs['replicas']
 
@@ -195,3 +197,11 @@ class ProcessVNFInstance(BaseProcess):
     @abstractmethod
     def process_horizontal_pod_autoscaler(self, **kwargs):
         pass
+
+    def process_onos_sf(self, rate):
+        response = dict()
+        response['SfInfo'] = dict()
+        response['SfInfo']['domain'] = '{}.imac.edu'.format(self.vnf_instance_name.lower())
+        response['SfInfo']['ipAddress'] = self.etcd_client.get_specific_saved_ip_address()
+        response['SfInfo']['rate'] = rate
+        self.onos_client.notification_sf_info(response)

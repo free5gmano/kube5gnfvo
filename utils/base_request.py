@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import requests
 import json
 
@@ -34,10 +33,12 @@ class BaseRequest(object):
                                auth=(self.auth_account, self.auth_password))
         return self._validate_status(respond)
 
-    def post(self, uri, data: dict):
+    def post(self, uri, data: dict, headers=None):
         respond = requests.post(url="{}{}".format(self.base_uri, uri),
                                 auth=(self.auth_account, self.auth_password),
-                                data=json.dumps(data))
+                                data=json.dumps(data),
+                                headers=headers)
+
         return self._validate_status(respond)
 
     def delete(self, uri):
@@ -48,8 +49,6 @@ class BaseRequest(object):
     def _validate_status(self, respond):
         status_code = str(respond.status_code)[0]
         if status_code[0] == self.USER_ERROR or status_code[0] == self.SERVER_ERROR:
-            # raise ValueError(respond.text)
             return False
-            # raise ValueError(respond.text)
         else:
             return respond

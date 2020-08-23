@@ -46,9 +46,8 @@ class KubernetesApi(BaseKubernetes):
 
     def handle_delete(self):
         service = self._get_resource()
-        if not service:
-            raise self.ApiException("{} does not exist".format(self.instance_name))
-        self.delete_resource()
+        if service:
+            self.delete_resource()
 
     @abstractmethod
     def read_resource(self, **kwargs):

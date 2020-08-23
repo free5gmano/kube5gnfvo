@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from VIMManagement.utils.config_map import ConfigMapClient
 from VIMManagement.utils.deployment import DeploymentClient
 from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscalerClient
@@ -43,7 +42,7 @@ class CreateService(ProcessVNFInstance):
         vdu = kwargs['vdu']
         client = ServiceClient(
             instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
-            port=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
+            ports=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
             service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
         client.handle_create_or_update()
 

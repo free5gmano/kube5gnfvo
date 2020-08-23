@@ -12,7 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from VIMManagement.utils.network_attachment import NetworkAttachment
 from utils.tosca_paser.base_template import BaseTemplate
 from utils.tosca_paser.cp_template import CPTemplate
 from utils.tosca_paser.fp_template import FPTemplate
@@ -50,11 +50,13 @@ class NodeTemplate(BaseTemplate):
             self.fp.append(FPTemplate(template, name))
 
     def _validate_vl(self):
+        network_attachment = NetworkAttachment()
+        multus_network_name = network_attachment.list_resource()
         if self.vnf.__len__() > 0:
             for vl in self.vl:
-                if 'management' == vl.properties['network_name']:
-                    return
-            self._value_empty_exception('VLTemplate', 'management network name')
+                network_name = vl.properties['network_name']
+                if 'management' != network_name and network_name not in multus_network_name:
+                    self._value_error_exception('VLTemplate', 'network name')
 
     def _Integration_vnf(self) -> dict:
         vnf = dict()

@@ -12,15 +12,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from VIMManagement.utils.config_map import ConfigMapClient
 from VIMManagement.utils.deployment import DeploymentClient
 from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscalerClient
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
-from os_ma_nfvo import settings
-from utils.file_manipulation import remove_file
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
