@@ -98,7 +98,7 @@ This section explains an exmaple deployment of Kube5GNfvo in Kubernetes. Require
 
 ### Create kube5gnfvo ServiceAccount
 ```shell=
-cat <<EOF >./service-account-agent.yaml
+cat <<EOF >./kube5gnfvo-sa.yaml
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -119,7 +119,7 @@ metadata:
   name: kube5gnfvo
 EOF
 
-kubectl apply -f service-account-agent.yaml
+kubectl apply -f kube5gnfvo-sa.yaml
 ```
 
 ### Deploy Mysql Database
