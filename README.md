@@ -11,7 +11,9 @@
   - [Etcd Operator](#Etcd-Operator)
   - [Metrics Server](#Metrics-Server)
   - [Node Exporter](#Node-Exporter)
+  - [KubeVirt](#KubeVirt)
 - [Quick Start](#quick-start)
+  - [Create a Configmap that is based on a Config of kubernetes cluster](#Create-a-Configmap-that-is-based-on-a-Config-of-kubernetes-cluster)
   - [Create kube5gnfvo ServiceAccount](#Create-kube5gnfvo-ServiceAccount)
   - [Deploy Mysql Database](#Deploy-Mysql-Database)
   - [Deploy kube5gnfvo](#Deploy-kube5gnfvo)
@@ -94,8 +96,40 @@ cd kube5gnfvo/example/
 kubectl apply -f prom-node-exporter.yaml
 ```
 
+### KubeVirt
+>Please refer to [KubeVirt Quickstart with Minikube](https://github.com/coreos/kube-prometheus/blob/master/manifests/node-exporter-daemonset.yaml) to deploy KubeVirt.
+##### Or follow the instructions
+```shell=
+cd kube5gnfvo/example/kubevirt/
+kubectl apply -f ./
+```
+
 ## Quick Start
 This section explains an exmaple deployment of Kube5GNfvo in Kubernetes. Required YAML files can be found in directory.
+### Create a Configmap that is based on a Config of kubernetes cluster
+
+#### copy the content into a pure text editor such as Notepad firs
+```shell=
+cat ~/.kube/config
+```
+#### And copy it from there into kube5gnfvo-configmap.yaml
+```shell=
+cat <<EOF >./kube5gnfvo-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube5gnfvo-config
+data:
+  config: |
+    ...
+      'Here!'
+    ...
+
+EOF
+
+kubectl apply -f kube5gnfvo-configmap.yaml
+```
 
 ### Create kube5gnfvo ServiceAccount
 ```shell=
@@ -240,7 +274,7 @@ spec:
     spec:
       serviceAccountName: kube5gnfvo
       containers:
-      - image: free5gmano/kube5gnfvo-stage1
+      - image: free5gmano/kube5gnfvo-stage2
         name: kube5gnfvo
         env:
         - name: DATABASE_PASSWORD

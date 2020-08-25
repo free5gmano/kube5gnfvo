@@ -38,6 +38,16 @@ class MonitorDeployment(BaseKubernetes):
                 target=partial(self._get_pod_event),
                 daemon=True
             ).start()
+            threading.Thread(
+                target=self._get_replica_event,
+                args=(self.kubevirt_api.list_virtual_machine_instance_replica_set_for_all_namespaces,
+                      self.virtual_machine_replica_set),
+                daemon=True
+            ).start()
+            threading.Thread(
+                target=partial(self._get_virtual_machine_event),
+                daemon=True
+            ).start()
         is_running = True
 
     def _get_replica_event(self, events, record: dict):
@@ -52,6 +62,35 @@ class MonitorDeployment(BaseKubernetes):
                 replicas = event['object']['spec']['replicas']
                 if _name not in list(record):
                     record[_name] = {'replicas': replicas}
+
+    def _get_virtual_machine_event(self):
+        while True:
+            for vmi in self.kubevirt_api.list_virtual_machine_instance_for_all_namespaces().items:
+                metadata = vmi.metadata
+                name = metadata.name
+                deletion_timestamp = metadata.deletion_timestamp
+                status = vmi.status
+                phase = status.phase
+
+                if status.conditions:
+                    if 'Failed' == phase:
+                        if not deletion_timestamp:
+                            error_reason = None
+                            error_message = None
+                            type_record = list()
+                            for conditions in status.conditions:
+                                type_record.append(conditions.type)
+                                if conditions.type != 'LiveMigratable' and conditions.type != 'Ready':
+                                    error_reason = conditions.reason
+                                    error_message = conditions.message
+                            if 'Ready' not in type_record:
+                                self.alarm.create_alarm(name, error_reason, error_message, False)
+                                if name in list(self.virtual_machine_status):
+                                    self.virtual_machine_status.pop(name)
+                        elif name in list(self.virtual_machine_status):
+                            self.virtual_machine_status.pop(name)
+                    elif phase == 'Running' and name:
+                        self.virtual_machine_status[name] = phase
 
     def _get_pod_event(self):
         while True:
@@ -80,7 +119,7 @@ class MonitorDeployment(BaseKubernetes):
                             if 'waiting' in state and \
                                     'CrashLoopBackOff' == state['waiting']['reason']:
                                 self.alarm.create_alarm(
-                                    _name, state['waiting']['reason'], state['waiting']['message'])
+                                    _name, state['waiting']['reason'], state['waiting']['message'], True)
                                 if _name in list(self.pod_status):
                                     self.pod_crash_event(None, _name)
 
@@ -92,25 +131,38 @@ class MonitorDeployment(BaseKubernetes):
         self.etcd_client.set_deploy_name(instance_name=instance_name, pod_name=pod_name)
         self.etcd_client.release_pod_ip_address()
 
-    def watch_specific_deployment(self, container_instance_name, _status, events):
+    def watch_specific_deployment(self, container_instance_name, vm_instance_name, _status, events):
         _queue = queue.Queue()
+        # check two event
+        success_count = 2
         threading.Thread(
-            target=partial(self._get_deploy_status, _queue=_queue, events=events),
+            target=partial(self._get_deploy_status, _queue=_queue, events=events, success_count=success_count),
             daemon=True
         ).start()
 
         threading.Thread(
             target=lambda q, deployment_names, status: q.put(
-                self._check_status(input_set=deployment_names, status=status)),
+                self._check_status(input_set=deployment_names, status=status, isContainer=True)),
             args=(_queue, container_instance_name, _status),
             daemon=True
         ).start()
 
-    def _check_status(self, input_set, status):
+        threading.Thread(
+            target=lambda q, vm_names, status: q.put(
+                self._check_status(input_set=vm_names, status=status, isContainer=False)),
+            args=(_queue, vm_instance_name, _status),
+            daemon=True
+        ).start()
+
+    def _check_status(self, input_set, status, isContainer):
         loop_count = -1
         while len(input_set) != 0:
-            all_resource = self.deployment_status
-            server_set = self.pod_status
+            if isContainer:
+                all_resource = self.deployment_status
+                server_set = self.pod_status
+            else:
+                all_resource = self.virtual_machine_replica_set
+                server_set = self.virtual_machine_status
 
             if loop_count < 0:
                 loop_count = len(input_set) - 1
@@ -133,8 +185,10 @@ class MonitorDeployment(BaseKubernetes):
             loop_count -= 1
         return True
 
-    def _get_deploy_status(self, _queue, events):
-        success_status = _queue.get()
-        if success_status:
-            print('success')
-            [event() for event in events]
+    def _get_deploy_status(self, _queue, events, success_count):
+        while success_count:
+            success_status = _queue.get()
+            if success_status:
+                success_count -= 1
+        print('success')
+        [event() for event in events]

@@ -34,11 +34,16 @@ class MonitorVnf(object):
             partial(self.set_state, ns_instance_id=ns_instance_id, lcm_operation_type=lcm_operation_type,
                     ns_state=ns_state, usage_state=usage_state)]
         container_list = list()
+        vm_list = list()
         for vnf_instance in kwargs['vnf_instances']:
-            container_list.append(vnf_instance.vnfInstanceName.lower())
+            vnf_package = VnfPkgInfo.objects.filter(id=vnf_instance.vnfPkgId).last()
+            if vnf_package.vnf_package_info_fk_software_image_info.last().diskFormat != 'qcow2':
+                container_list.append(vnf_instance.vnfInstanceName.lower())
+            else:
+                vm_list.append(vnf_instance.vnfInstanceName.lower())
 
         self.monitor_deployment.watch_specific_deployment(
-            container_list, kwargs['container_phase'], completed_events)
+            container_list, vm_list, kwargs['container_phase'], completed_events)
 
     def set_state(self, ns_instance_id, lcm_operation_type, ns_state, usage_state):
         ns_instance = NsInstance.objects.filter(id=ns_instance_id).last()

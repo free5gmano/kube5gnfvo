@@ -132,7 +132,10 @@ class ProcessVNFInstance(BaseProcess):
                 for scale in vdu_scaling:
                     if vnf in scale.targets:
                         max_instances = scale.properties['max_instances']
-                        self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties)
+                        if vdu.properties['diskFormat'] == 'raw':
+                            self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties, isContainer=True)
+                        else:
+                            self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties, isContainer=False)
                         break
 
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)

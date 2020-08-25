@@ -18,6 +18,7 @@ from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscale
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
+from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -35,7 +36,11 @@ class CreateService(ProcessVNFInstance):
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
-        client = DeploymentClient(**kwargs['vdu_info'])
+        if kwargs['vdu_info']['diskFormat'] == 'raw':
+            client = DeploymentClient(**kwargs['vdu_info'])
+        else:
+            client = VirtualMachineInstance(**kwargs['vdu_info'])
+
         client.handle_create_or_update()
 
     def process_service(self, **kwargs):
@@ -67,5 +72,6 @@ class CreateService(ProcessVNFInstance):
             instance_name=self.vnf_instance_name, namespace=vdu.attributes['namespace'],
             max_replicas=scale['max_instances'],
             min_replicas=vdu.attributes['replicas'],
-            target_cpu_utilization_percentage=scale['target_cpu_utilization_percentage'])
+            target_cpu_utilization_percentage=scale['target_cpu_utilization_percentage'],
+            isContainer=kwargs['isContainer'])
         client.handle_create_or_update()

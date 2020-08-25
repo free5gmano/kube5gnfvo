@@ -23,6 +23,7 @@ class HorizontalPodAutoscalerClient(KubernetesApi):
             self.max_replicas = kwargs['max_replicas']
             self.min_replicas = kwargs['min_replicas']
             self.target_cpu_utilization_percentage = kwargs['target_cpu_utilization_percentage']
+        self.isContainer = kwargs['isContainer']
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -46,8 +47,13 @@ class HorizontalPodAutoscalerClient(KubernetesApi):
             api_version='autoscaling/v1', kind='HorizontalPodAutoscaler')
         horizontal_pod_autoscaler.metadata = self.kubernetes_client.V1ObjectMeta(
             name=self.instance_name)
-        scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
-            api_version='apps/v1', kind='Deployment', name=self.instance_name)
+        if self.isContainer:
+            scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
+                api_version='apps/v1', kind='Deployment', name=self.instance_name)
+        else:
+            scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
+                api_version='kubevirt.io/v1alpha3', kind='VirtualMachineInstanceReplicaSet', name=self.instance_name)
+
         horizontal_pod_autoscaler.spec = self.kubernetes_client.V1HorizontalPodAutoscalerSpec(
             max_replicas=self.max_replicas, min_replicas=self.min_replicas,
             scale_target_ref=scale_target_ref,
