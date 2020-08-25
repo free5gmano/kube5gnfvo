@@ -14,6 +14,7 @@
 - [Quick Start](#quick-start)
   - [Create kube5gnfvo ServiceAccount](#Create-kube5gnfvo-ServiceAccount)
   - [Deploy Mysql Database](#Deploy-Mysql-Database)
+  - [Deploy kube5gnfvo](#Deploy-kube5gnfvo)
   - [Example deployments](#example-deployments)
     - [Testing kube5gnfvo](#Testing-kube5gnfvo)
 
@@ -213,7 +214,7 @@ metadata:
   name: mysql-initdb-config
 data:
   initdb.sql: |
-    CREATE DATABASE kube5gmano;
+    CREATE DATABASE kube5gnfvo;
 EOF
 
 kubectl apply -f kube5gnfvo-mysql.yaml
