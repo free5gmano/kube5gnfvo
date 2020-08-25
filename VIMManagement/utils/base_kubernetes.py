@@ -14,6 +14,7 @@
 #    under the License.
 
 import functools
+import os
 import threading
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
@@ -52,7 +53,11 @@ class DeploymentStatus(dict, metaclass=Singleton):
 
 
 class PodStatus(dict, metaclass=Singleton):
-    pass
+    def __setitem__(self, *args, **kwargs):
+        if args[0] in self and self[args[0]] == 'Terminating':
+            return
+
+        super().__setitem__(*args, **kwargs)
 
 
 class BaseKubernetes(object):
@@ -63,6 +68,7 @@ class BaseKubernetes(object):
         # config.load_kube_config(config_file=self.kubeconfig)
         self.core_v1 = self.kubernetes_client.CoreV1Api()
         self.app_v1 = self.kubernetes_client.AppsV1Api()
+        self.api_crd = self.kubernetes_client.CustomObjectsApi()
         self.ApiException = ApiException
         self.service_instance = None
         self.watch = watch.Watch()

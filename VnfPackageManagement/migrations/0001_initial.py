@@ -6,7 +6,6 @@ import uuid
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -31,7 +30,9 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='VnfPkgInfoLinks',
             fields=[
-                ('_links', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True, related_name='vnf_package_info_fk_link', serialize=False, to='VnfPackageManagement.VnfPkgInfo')),
+                ('_links', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, primary_key=True,
+                                                related_name='vnf_package_info_fk_link', serialize=False,
+                                                to='VnfPackageManagement.VnfPkgInfo')),
                 ('link_self', models.URLField()),
                 ('vnfd', models.URLField()),
                 ('packageContent', models.URLField()),
@@ -52,7 +53,9 @@ class Migration(migrations.Migration):
                 ('size', models.TextField(blank=True, null=True)),
                 ('userMetadata', models.TextField(blank=True, null=True)),
                 ('imagePath', models.TextField(blank=True, null=True)),
-                ('softwareImages', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='vnf_package_info_fk_software_image_info', to='VnfPackageManagement.VnfPkgInfo')),
+                ('softwareImages', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                                     related_name='vnf_package_info_fk_software_image_info',
+                                                     to='VnfPackageManagement.VnfPkgInfo')),
             ],
         ),
         migrations.CreateModel(
@@ -61,7 +64,10 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('artifactPath', models.TextField()),
                 ('metadata', models.TextField(blank=True, null=True)),
-                ('additionalArtifacts', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='vnf_package_info_fk_artifactInfo', to='VnfPackageManagement.VnfPkgInfo')),
+                ('additionalArtifacts',
+                 models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                   related_name='vnf_package_info_fk_artifactInfo',
+                                   to='VnfPackageManagement.VnfPkgInfo')),
             ],
         ),
         migrations.CreateModel(
@@ -70,8 +76,14 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('algorithm', models.TextField()),
                 ('hash', models.TextField()),
-                ('vnf_package_artifact_info_fk_checksum', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='vnf_package_artifact_info_fk_checksum', to='VnfPackageManagement.VnfPackageArtifactInfo')),
-                ('vnf_package_info_fk_checksum', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='vnf_package_info_fk_checksum', to='VnfPackageManagement.VnfPkgInfo')),
+                ('vnf_package_artifact_info_fk_checksum',
+                 models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                      related_name='vnf_package_artifact_info_fk_checksum',
+                                      to='VnfPackageManagement.VnfPackageArtifactInfo')),
+                ('vnf_package_info_fk_checksum',
+                 models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                      related_name='vnf_package_info_fk_checksum',
+                                      to='VnfPackageManagement.VnfPkgInfo')),
             ],
         ),
     ]

@@ -1,7 +1,21 @@
+# All Rights Reserved.
+#
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
 from NSLifecycleManagement.models import VnfInstance, InstantiatedVnfInfo, VnfExtCpInfo, CpProtocolInfo, \
     IpOverEthernetAddressInfo, IpAddresses, ExtVirtualLinkInfo, ExtLinkPortInfo
 from VnfPackageManagement.models import VnfPkgInfo
-from utils.format_tools import randomString
+from utils.format_tools import random_string
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
@@ -10,7 +24,7 @@ def get_vnf_instance(vnf_pkg_ids) -> list:
     for vnf_pkg_id in vnf_pkg_ids:
         vnf_package_info = VnfPkgInfo.objects.filter(id=vnf_pkg_id).last()
         vnfd_id = vnf_package_info.vnfdId.lower()
-        vnf_instance_name = '{}-{}'.format(vnfd_id, randomString())
+        vnf_instance_name = '{}-{}'.format(vnfd_id, random_string())
         process_vnf_instance = ProcessVNFInstance(vnf_pkg_id, vnf_instance_name=vnf_instance_name)
         ext_cp_info = process_vnf_instance.process_template()
         vnf_instances.append({'vnfdId': vnf_package_info.vnfdId,

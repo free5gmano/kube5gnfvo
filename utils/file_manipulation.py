@@ -44,8 +44,10 @@ def create_update_file(path, input_data):
 
 
 def create_dir(path):
-    if not os.path.isdir(path):
+    try:
         os.makedirs(path)
+    except FileExistsError:
+        pass
 
 
 def decompress_zip(zip_file, dir_path):

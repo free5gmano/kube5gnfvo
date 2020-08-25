@@ -12,99 +12,85 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import queue
 import threading
 from functools import partial
+from NSFaultManagement.utils.alarm_event import AlarmEvent
 from VIMManagement.utils.base_kubernetes import BaseKubernetes
 from utils.etcd_client.etcd_client import EtcdClient
+
+is_running = False
 
 
 class MonitorDeployment(BaseKubernetes):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.run_watch_event()
         self.etcd_client = EtcdClient()
+        self.alarm = AlarmEvent()
+        global is_running
+        if not is_running:
+            threading.Thread(
+                target=self._get_replica_event,
+                args=(self.app_v1.list_deployment_for_all_namespaces, self.deployment_status),
+                daemon=True
+            ).start()
+            threading.Thread(
+                target=partial(self._get_pod_event),
+                daemon=True
+            ).start()
+        is_running = True
 
-    # def run_watch_event(self):
-    #     threading.Thread(
-    #         target=partial(self._get_deployment_event),
-    #         daemon=True
-    #     ).start()
-    #
-    #     threading.Thread(
-    #         target=partial(self._get_pod_event),
-    #         daemon=True
-    #     ).start()
+    def _get_replica_event(self, events, record: dict):
+        while True:
+            stream = self.watch.stream(partial(events), timeout_seconds=5)
+            for event in stream:
+                _type = event['type']
+                if 'name' not in event['object']['metadata']:
+                    continue
 
-    def _get_pod_event(self, resource_version):
-        if resource_version is None:
+                _name = event['object']['metadata']['name']
+                replicas = event['object']['spec']['replicas']
+                if _name not in list(record):
+                    record[_name] = {'replicas': replicas}
+
+    def _get_pod_event(self):
+        while True:
             stream = self.watch.stream(partial(self.core_v1.list_pod_for_all_namespaces), timeout_seconds=5)
-        else:
-            stream = self.watch.stream(partial(self.core_v1.list_pod_for_all_namespaces),
-                                       resource_version=resource_version, timeout_seconds=5)
 
-        for event in stream:
-            _type = event['type']
-            _metadata = event['object']['metadata']
-            _status = event['object']['status']
-            if 'name' not in _metadata:
-                continue
+            for event in stream:
+                _type = event['type']
+                _metadata = event['object']['metadata']
+                _status = event['object']['status']
+                if 'name' not in _metadata:
+                    continue
 
-            _name = _metadata['name']
-            resource_version = _metadata['resourceVersion']
+                _name = _metadata['name']
+                _phase = _status['phase']
+                if _phase == 'Running':
+                    self.pod_status[_name] = _phase
 
-            _phase = _status['phase']
-            if _type == 'MODIFIED' and 'deletionTimestamp' not in _metadata:
-                if 'containerStatuses' in _status:
-                    container_status = _status['containerStatuses']
-                    for status in container_status:
-                        if 'state' not in status:
-                            continue
+                if _type == 'MODIFIED' and 'deletionTimestamp' not in _metadata:
+                    if 'containerStatuses' in _status:
+                        container_status = _status['containerStatuses']
+                        for status in container_status:
+                            if 'state' not in status:
+                                continue
 
-                        state = status['state']
-                        if 'waiting' in state and \
-                                'CrashLoopBackOff' == state['waiting']['reason']:
-                            # alarm
-                            self.pod_crash_event(None, _name)
-                        else:
-                            self.pod_status[_name] = _phase
-            elif _type == 'DELETED' and _name in list(
-                    self.pod_status) and 'deletionTimestamp' in _metadata:
-                self.pod_crash_event(_name, None)
-            else:
-                self.pod_status[_name] = _phase
+                            state = status['state']
+                            if 'waiting' in state and \
+                                    'CrashLoopBackOff' == state['waiting']['reason']:
+                                self.alarm.create_alarm(
+                                    _name, state['waiting']['reason'], state['waiting']['message'])
+                                if _name in list(self.pod_status):
+                                    self.pod_crash_event(None, _name)
 
-        return resource_version
+                elif _type == 'DELETED' and _name in list(self.pod_status) and 'deletionTimestamp' in _metadata:
+                    self.pod_crash_event(_name, None)
+                    self.pod_status.pop(_name)
 
     def pod_crash_event(self, instance_name, pod_name):
-        if pod_name:
-            self.pod_status.pop(pod_name)
-
         self.etcd_client.set_deploy_name(instance_name=instance_name, pod_name=pod_name)
         self.etcd_client.release_pod_ip_address()
-
-    def _get_deployment_event(self, resource_version):
-        if resource_version is None:
-            stream = self.watch.stream(partial(self.app_v1.list_deployment_for_all_namespaces), timeout_seconds=5)
-        else:
-            stream = self.watch.stream(partial(self.app_v1.list_deployment_for_all_namespaces),
-                                       resource_version=resource_version, timeout_seconds=5)
-
-        for event in stream:
-            _type = event['type']
-            if 'name' not in event['object']['metadata']:
-                continue
-            _name = event['object']['metadata']['name']
-            resource_version = event['object']['metadata']['resourceVersion']
-            replicas = event['object']['spec']['replicas']
-            if _type == 'DELETED' and _name in list(self.deployment_status):
-                self.deployment_status.pop(_name)
-            else:
-                if _name not in list(self.deployment_status):
-                    self.deployment_status[_name] = {'replicas': replicas}
-
-        return resource_version
 
     def watch_specific_deployment(self, container_instance_name, _status, events):
         _queue = queue.Queue()
@@ -114,44 +100,41 @@ class MonitorDeployment(BaseKubernetes):
         ).start()
 
         threading.Thread(
-            target=lambda q, deploy_names, status: q.put(
-                self._check_specific_deployment_status(
-                    input_deployment_set=deploy_names, status=status)),
+            target=lambda q, deployment_names, status: q.put(
+                self._check_status(input_set=deployment_names, status=status)),
             args=(_queue, container_instance_name, _status),
             daemon=True
         ).start()
 
-    def _check_specific_deployment_status(self, input_deployment_set, status):
+    def _check_status(self, input_set, status):
         loop_count = -1
-        resource_version_deployment = None
-        resource_version_pod = None
-        while len(input_deployment_set) != 0:
-            resource_version_deployment = self._get_deployment_event(resource_version_deployment)
-            resource_version_pod = self._get_pod_event(resource_version_pod)
+        while len(input_set) != 0:
+            all_resource = self.deployment_status
+            server_set = self.pod_status
 
             if loop_count < 0:
-                loop_count = len(input_deployment_set) - 1
+                loop_count = len(input_set) - 1
 
-            all_deployment_key = list(self.deployment_status)
-            input_specific_deployment = list(input_deployment_set)[loop_count]
-            if status == 'Terminating':
-                if input_specific_deployment not in all_deployment_key:
-                    input_deployment_set.remove(input_specific_deployment)
-            else:
-                if input_specific_deployment in all_deployment_key:
-                    pod_status_count = 0
-                    for pod_name in list(self.pod_status):
-                        if input_specific_deployment in pod_name:
-                            if status == self.pod_status[pod_name]:
-                                pod_status_count += 1
-                    if self.deployment_status[input_specific_deployment]['replicas'] == pod_status_count:
-                        input_deployment_set.remove(input_specific_deployment)
+            specific_input_resource = list(input_set)[loop_count]
+            if specific_input_resource in list(all_resource):
+                if status == 'Terminating':
+                    if not any(specific_input_resource in _ for _ in list(server_set)):
+                        input_set.remove(specific_input_resource)
+                        all_resource.pop(specific_input_resource)
+                else:
+                    complete_count = 0
+                    for name in list(server_set):
+                        if specific_input_resource in name:
+                            if status == server_set[name]:
+                                complete_count += 1
+                    if all_resource[specific_input_resource]['replicas'] == complete_count:
+                        input_set.remove(specific_input_resource)
 
-            loop_count = loop_count - 1
+            loop_count -= 1
         return True
 
     def _get_deploy_status(self, _queue, events):
-        while _queue.empty():
-            pass
-        print('success')
-        [event() for event in events]
+        success_status = _queue.get()
+        if success_status:
+            print('success')
+            [event() for event in events]

@@ -42,6 +42,7 @@ class ExtLinkPortInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExtLinkPortInfo
         fields = ('id', 'cpInstanceId')
+        ref_name = 'NsInstanceSerializer_ExtLinkPortInfoSerializer'
 
 
 class ExtVirtualLinkInfoSerializer(serializers.ModelSerializer):
@@ -51,6 +52,7 @@ class ExtVirtualLinkInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExtVirtualLinkInfo
         fields = ('id', 'extLinkPorts')
+        ref_name = 'NsInstanceSerializer_ExtVirtualLinkInfoSerializer'
 
 
 class IpAddressesSerializer(serializers.ModelSerializer):
@@ -126,18 +128,18 @@ class NsInstanceSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         link_value = validated_data.pop('NsInstance_links')
-        vnf_Instance_dict = validated_data.pop('NsInstance_VnfInstance', dict())
+        vnf_instance_dict = validated_data.pop('NsInstance_VnfInstance', dict())
         vnffg_info_list = validated_data.pop('NsInstance_VnffgInfo', list())
         ns = NsInstance.objects.create(**validated_data)
         NsInstanceLinks.objects.create(
             _links=ns, **{'link_self': link_value['link_self'] + str(ns.id)})
         vnffg_vl_id = list()
-        for vnf_Instance_value in vnf_Instance_dict:
-            instantiated_vnfInfo = vnf_Instance_value.pop('VnfInstance_instantiatedVnfInfo')
-            vnf_Instance = VnfInstance.objects.create(**vnf_Instance_value)
-            ext_cp_info_dict = instantiated_vnfInfo.pop('InstantiatedVnfInfo_VnfExtCpInfo')
+        for vnf_Instance_value in vnf_instance_dict:
+            instantiated_vnf_info = vnf_Instance_value.pop('VnfInstance_instantiatedVnfInfo')
+            vnf_instance = VnfInstance.objects.create(**vnf_Instance_value)
+            ext_cp_info_dict = instantiated_vnf_info.pop('InstantiatedVnfInfo_VnfExtCpInfo')
             instantiated_vnf_info = InstantiatedVnfInfo.objects.create(
-                instantiatedVnfInfo=vnf_Instance, **instantiated_vnfInfo)
+                instantiatedVnfInfo=vnf_instance, **instantiated_vnf_info)
             for ext_cp_info in ext_cp_info_dict:
                 cp_protocol_info_dict = ext_cp_info.pop('VnfExtCpInfo_CpProtocolInfo')
                 vnf_ext_cp_info = VnfExtCpInfo.objects.create(
@@ -161,14 +163,14 @@ class NsInstanceSerializer(serializers.ModelSerializer):
                 ext_link_port_info = ExtLinkPortInfo.objects.create(**{"cpInstanceId": vnf_ext_cp_info.id})
                 ext_virtual_link_info.ExtVirtualLinkInfo_ExtLinkPortInfo.add(ext_link_port_info)
                 instantiated_vnf_info.InstantiatedVnfInfo_ExtVirtualLinkInfo.add(ext_virtual_link_info)
-            ns.NsInstance_VnfInstance.add(vnf_Instance)
+            ns.NsInstance_VnfInstance.add(vnf_instance)
 
             for vnffg in vnffg_info_list:
                 if isinstance(vnffg['vnfInstanceId'], str):
                     vnffg['vnfInstanceId'] = json.loads(vnffg['vnfInstanceId'])
 
                 if vnf_Instance_value['vnfdId'] in vnffg['vnfInstanceId']:
-                    vnffg['vnfInstanceId'].append(str(vnf_Instance.id))
+                    vnffg['vnfInstanceId'].append(str(vnf_instance.id))
                     vnffg['vnfInstanceId'].remove(vnf_Instance_value['vnfdId'])
                     cp = instantiated_vnf_info.InstantiatedVnfInfo_VnfExtCpInfo.all()
                     for cp_info in cp:
@@ -180,7 +182,7 @@ class NsInstanceSerializer(serializers.ModelSerializer):
                                         if vl_port.cpInstanceId == str(cp_info.id):
                                             vnffg_vl_id.append(str(vnf_vl.id))
                                             break
-                                ns_cp_handle['vnfInstanceId'] = vnf_Instance.id
+                                ns_cp_handle['vnfInstanceId'] = vnf_instance.id
                                 break
 
         for vnffg in vnffg_info_list:

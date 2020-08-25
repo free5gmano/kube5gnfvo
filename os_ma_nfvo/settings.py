@@ -28,10 +28,11 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
+VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_volume/'
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
 DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
 DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
+ONOS_IP = os.getenv('ONOS_IP', 'http://10.0.0.72:8181/onos/sfc/sfc/')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -54,10 +55,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_yasg',
     'VnfPackageManagement.apps.VnfpackagemanagementConfig',
+    'VnfPackageSubscription.apps.VnfpackagesubscriptionConfig',
     'NSDManagement.apps.NsdmanagementConfig',
+    'NSDSubscription.apps.NsdsubscriptionConfig',
     'NSLifecycleManagement.apps.NslifecyclemanagementConfig',
+    'NSLifecycleSubscriptions.apps.NslifecyclesubscriptionsConfig',
     'NSLCMOperationOccurrences.apps.NslcmoperationoccurrencesConfig',
+    'NSFaultManagement.apps.NSFaultManagementConfig',
+    'NSFaultSubscription.apps.NSFaultSubscriptionConfig',
     'VIMManagement.apps.VimmanagementConfig'
 ]
 
@@ -98,11 +105,10 @@ WSGI_APPLICATION = 'os_ma_nfvo.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'kube5gmano',
+        'NAME': 'kube5gnfvo',
         'USER': 'root',
         'PASSWORD': DATABASE_PASSWORD,
         'HOST': DATABASE_HOST,
