@@ -119,7 +119,7 @@ class MonitorDeployment(BaseKubernetes):
                             if 'waiting' in state and \
                                     'CrashLoopBackOff' == state['waiting']['reason']:
                                 self.alarm.create_alarm(
-                                    _name, state['waiting']['reason'], state['waiting']['message'])
+                                    _name, state['waiting']['reason'], state['waiting']['message'], True)
                                 if _name in list(self.pod_status):
                                     self.pod_crash_event(None, _name)
 
