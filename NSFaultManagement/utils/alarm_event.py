@@ -1,3 +1,17 @@
+# All Rights Reserved.
+#
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
 import json
 
 from NSLifecycleManagement.models import VnfInstance, NsInstance
@@ -22,10 +36,13 @@ class AlarmEvent(object):
 
         return json.dumps(ns_instance_id), json.dumps(ns_instance_link)
 
-    def create_alarm(self, name: str, reason: str, message: str):
-        pod_name_list = name.split('-')
-        [pod_name_list.pop(-1) for _ in range(0, 2)]
-        vnf_name = '-'.join(pod_name_list)
+    def create_alarm(self, name: str, reason: str, message: str, is_container: bool):
+        if is_container:
+            pod_name_list = name.split('-')
+            [pod_name_list.pop(-1) for _ in range(0, 2)]
+            vnf_name = '-'.join(pod_name_list)
+        else:
+            vnf_name = name[:-5]
 
         vnf_instance = VnfInstance.objects.filter(vnfInstanceName=vnf_name).last()
         if vnf_instance:

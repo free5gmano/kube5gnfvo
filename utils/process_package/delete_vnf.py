@@ -18,6 +18,7 @@ from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscale
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
+from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
@@ -33,7 +34,11 @@ class DeleteService(ProcessVNFInstance):
 
     def process_deployment(self, **kwargs):
         data = {'instance_name': self.vnf_instance_name, 'namespace': kwargs['vdu_info']['namespace']}
-        client = DeploymentClient(**data)
+        if kwargs['vdu_info']['diskFormat'] == 'raw':
+            client = DeploymentClient(**data)
+        else:
+            client = VirtualMachineInstance(**data)
+
         client.handle_delete()
 
     def process_service(self, **kwargs):
@@ -53,5 +58,6 @@ class DeleteService(ProcessVNFInstance):
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         client = HorizontalPodAutoscalerClient(
-            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].attributes['namespace'])
+            instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].attributes['namespace'],
+            isContainer=kwargs['isContainer'])
         client.handle_delete()
