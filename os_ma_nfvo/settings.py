@@ -108,7 +108,7 @@ WSGI_APPLICATION = 'os_ma_nfvo.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'kube5gmano',
+        'NAME': 'kube5gnfvo',
         'USER': 'root',
         'PASSWORD': DATABASE_PASSWORD,
         'HOST': DATABASE_HOST,

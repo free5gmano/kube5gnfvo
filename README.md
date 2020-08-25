@@ -248,7 +248,7 @@ metadata:
   name: mysql-initdb-config
 data:
   initdb.sql: |
-    CREATE DATABASE kube5gmano;
+    CREATE DATABASE kube5gnfvo;
 EOF
 
 kubectl apply -f kube5gnfvo-mysql.yaml
