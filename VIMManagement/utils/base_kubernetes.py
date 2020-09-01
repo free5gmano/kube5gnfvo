@@ -63,25 +63,10 @@ class PodStatus(dict, metaclass=Singleton):
 
 class BaseKubernetes(object):
     def __init__(self, *args, **kwargs):
-        # config.load_incluster_config()
-        # self.kubernetes_client = client
+        config.load_incluster_config()
+        self.kubernetes_client = client
         # self.kubeconfig = os.path.expanduser("~/.kube/config")
         # config.load_kube_config(config_file=self.kubeconfig)
-        # self.core_v1 = self.kubernetes_client.CoreV1Api()
-        # self.app_v1 = self.kubernetes_client.AppsV1Api()
-        # self.api_crd = self.kubernetes_client.CustomObjectsApi()
-        # self.ApiException = ApiException
-        # self.service_instance = None
-        # self.watch = watch.Watch()
-        # self.lock = threading.Lock()
-        # self.rbac_authorization_v1 = self.kubernetes_client.RbacAuthorizationV1Api()
-        # self.auto_scaling_v1 = self.kubernetes_client.AutoscalingV1Api()
-        # self.deployment_status = DeploymentStatus()
-        # self.pod_status = PodStatus()
-
-        self.kubernetes_client = client
-        self.kubeconfig = os.path.expanduser("~/.kube/config")
-        config.load_kube_config(config_file=self.kubeconfig)
         self.core_v1 = self.kubernetes_client.CoreV1Api()
         self.app_v1 = self.kubernetes_client.AppsV1Api()
         self.api_crd = self.kubernetes_client.CustomObjectsApi()
@@ -91,11 +76,5 @@ class BaseKubernetes(object):
         self.lock = threading.Lock()
         self.rbac_authorization_v1 = self.kubernetes_client.RbacAuthorizationV1Api()
         self.auto_scaling_v1 = self.kubernetes_client.AutoscalingV1Api()
-        kube_config_loader = config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)
-        kube_config_loader.load_and_set(kubevirt.configuration)
-        self.kubevirt_client = kubevirt
-        self.kubevirt_api = kubevirt.DefaultApi()
         self.deployment_status = DeploymentStatus()
         self.pod_status = PodStatus()
-        # self.virtual_machine_status = VirtualMachineStatus()
-        # self.virtual_machine_replica_set = VirtualMachineReplicaSetStatus()
