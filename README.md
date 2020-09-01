@@ -12,6 +12,7 @@
   - [Metrics Server](#Metrics-Server)
   - [Node Exporter](#Node-Exporter)
   - [KubeVirt](#KubeVirt)
+  - [kubevirt-py](#kubevirt-py)
 - [Quick Start](#quick-start)
   - [Create a Configmap that is based on a Config of kubernetes cluster](#Create-a-Configmap-that-is-based-on-a-Config-of-kubernetes-cluster)
   - [Create kube5gnfvo ServiceAccount](#Create-kube5gnfvo-ServiceAccount)
@@ -97,11 +98,19 @@ kubectl apply -f prom-node-exporter.yaml
 ```
 
 ### KubeVirt
->Please refer to [KubeVirt Quickstart with Minikube](https://github.com/coreos/kube-prometheus/blob/master/manifests/node-exporter-daemonset.yaml) to deploy KubeVirt.
+>Please refer to [KubeVirt Quickstart with Minikube](https://github.com/kubevirt/kubevirt) to deploy KubeVirt.
 ##### Or follow the instructions
 ```shell=
 cd kube5gnfvo/example/kubevirt/
 kubectl apply -f ./
+```
+
+### kubevirt-py
+>Please refer to [KubeVirt Quickstart with Minikube](https://github.com/kubevirt/client-python) to deploy kubevirt-py.
+##### Or follow the instructions
+```shell=
+cd kube5gnfvo/client-python/
+python setup.py install --user
 ```
 
 ## Quick Start
