@@ -304,10 +304,19 @@ spec:
         - name: kube5gnfvo-vnf-package
           mountPath: /root/VnfPackage
           subPath: VnfPackage
+        - name: kube-config
+          mountPath: /root/config
+          subPath: config
       volumes:
       - name: kube5gnfvo-vnf-package
         persistentVolumeClaim:
           claimName: kube5gnfvo-pvc
+      - name: kube-config
+        configMap:
+          name: kube5gnfvo-config
+          items:
+          - key: config
+            path: config
 ---
 apiVersion: v1
 kind: Service
