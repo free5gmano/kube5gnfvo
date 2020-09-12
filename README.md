@@ -97,7 +97,7 @@ kubectl apply -f prom-node-exporter.yaml
 ```
 
 ### KubeVirt
->Please refer to [KubeVirt Quickstart with Minikube](https://github.com/coreos/kube-prometheus/blob/master/manifests/node-exporter-daemonset.yaml) to deploy KubeVirt.
+>Please refer to [KubeVirt Quickstart with Minikube](https://kubevirt.io/2019/KubeVirt_k8s_crio_from_scratch_installing_KubeVirt.html) to deploy KubeVirt.
 ##### Or follow the instructions
 ```shell=
 cd kube5gnfvo/example/kubevirt/
