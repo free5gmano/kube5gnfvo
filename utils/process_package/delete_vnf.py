@@ -20,6 +20,7 @@ from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimCli
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
+from utils.file_manipulation import remove_file
 
 
 class DeleteService(ProcessVNFInstance):
@@ -53,8 +54,16 @@ class DeleteService(ProcessVNFInstance):
         client.handle_delete()
 
     def process_persistent_volume(self, **kwargs):
+        vdu = kwargs['vdu']
         client = PersistentVolumeClient(instance_name=self.vnf_instance_name)
         client.handle_delete()
+        if vdu.requirements['type_of_storage'] == 'nfs':
+            remove_file("{}{}".format(settings.NFS_PATH, self.vnf_instance_name))
+        elif vdu.requirements['type_of_storage'] == 'local' or vdu.requirements['type_of_storage'] == 'volume':
+            remove_file("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
+        else:
+            raise APIException(detail='storage type only local or nfs',
+                                   code=status.HTTP_409_CONFLICT)
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         client = HorizontalPodAutoscalerClient(

@@ -111,3 +111,12 @@ def download_file(url, file_name):
     with urllib.request.urlopen(url) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
         return file_name
+
+
+def mount_dir(nfs_server,nfs_path):
+    if not os.path.isdir(setting.NFS_PATH):
+        os.makedirs(setting.NFS_PATH)
+    if not os.path.ismount(setting.NFS_PATH):
+        process = Popen(['mount', '-t', 'nfs', '{}:{}'.format(nfs_server, nfs_path),
+                         setting.NFS_PATH], stdout=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()

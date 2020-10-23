@@ -22,6 +22,8 @@ class VDUTemplate(EntityTemplate):
         ('name', 'provider', 'version', 'diskFormat')
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
+    VDU_REQUIREMENTS_NFS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH, STORAGE_SERVER) = \
+        ('type_of_storage', 'size_of_storage', 'path_of_storage', 'server_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
                       NAME_OF_SERVICE, IS_EXPORT_SERVICE, PROTOCOL) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
@@ -36,6 +38,7 @@ class VDUTemplate(EntityTemplate):
         self.properties = self._get_properties(self.VDU_PROPERTIES)
         self.capabilities = self._get_capabilities(self.VDU_CAPABILITIES)
         self.requirements = self._get_requirements(self.VDU_REQUIREMENTS)
+        self.requirements_nfs = self._get_requirements(self.VDU_REQUIREMENTS_NFS)
         self.attributes = self._get_attributes(self.VDU_ATTRIBUTES, attributes_list=self.VDU_ATTRIBUTES_LIST,
                                                attributes_dict=self.VDU_ATTRIBUTES_DICT)
         self.artifacts = self._get_artifacts()

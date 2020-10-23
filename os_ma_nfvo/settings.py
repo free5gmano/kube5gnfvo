@@ -28,6 +28,7 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NFS_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
 VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_volume/'
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
 DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
