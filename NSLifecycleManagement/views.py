@@ -176,10 +176,10 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             vnf_instance.VnfInstance_instantiatedVnfInfo.save()
             create_network_service = \
                 CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
-            threading.Thread(
-                target=partial(create_network_service.process_instance),
-                daemon=True
-            ).start()
+            # threading.Thread(
+            #     target=partial(create_network_service.process_instance),
+            #     daemon=True
+            # ).start()
 
             vnf_instance_list.append(vnf_instance)
 
