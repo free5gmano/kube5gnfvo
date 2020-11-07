@@ -22,7 +22,7 @@ class ProcessFPInstance(BaseProcess):
 
     def __init__(self, package_id):
         super().__init__(package_id)
-        self.onos_client = ONOSClient()
+        # self.onos_client = ONOSClient()
         self.vnffg_info = self.process_template()
 
     def get_root_path(self):

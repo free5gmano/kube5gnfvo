@@ -25,7 +25,7 @@ class ProcessVNFInstance(BaseProcess):
     def __init__(self, package_id, vnf_instance_name=None):
         super().__init__(package_id)
         self.vnf_instance_name = None
-        self.onos_client = ONOSClient()
+        # self.onos_client = ONOSClient()
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
 
