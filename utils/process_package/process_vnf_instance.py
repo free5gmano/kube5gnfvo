@@ -25,7 +25,7 @@ class ProcessVNFInstance(BaseProcess):
     def __init__(self, package_id, vnf_instance_name=None):
         super().__init__(package_id)
         self.vnf_instance_name = None
-        self.onos_client = ONOSClient()
+        # self.onos_client = ONOSClient()
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
 
@@ -137,7 +137,7 @@ class ProcessVNFInstance(BaseProcess):
 
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
-            self.process_onos_sf(rate)
+            # self.process_onos_sf(rate)
 
             # update api
             if 'replicas' in kwargs and kwargs['replicas']:
