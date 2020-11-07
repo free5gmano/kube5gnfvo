@@ -18,7 +18,6 @@ import os
 import threading
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
-import kubevirt
 
 lock = threading.Lock()
 
