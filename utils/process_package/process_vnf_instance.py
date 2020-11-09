@@ -138,7 +138,6 @@ class ProcessVNFInstance(BaseProcess):
 
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
-            self.process_onos_sf(rate)
 
             # update api
             if 'replicas' in kwargs and kwargs['replicas']:
