@@ -14,13 +14,19 @@
 #    under the License.
 
 from VIMManagement.utils.kubernetes_api import KubernetesApi
-from os_ma_nfvo.settings import VOLUME_PATH
+import os_ma_nfvo.settings as setting
 
 
 class PersistentVolumeClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         if 'storage_size' in kwargs:
             self.storage_size = kwargs['storage_size']
+        if 'storage_type' in kwargs:
+            self.storage_type = kwargs['storage_type']
+        if 'nfs_path' in kwargs:
+            self.nfs_path = kwargs['nfs_path']
+        if 'nfs_server' in kwargs:
+            self.nfs_server = kwargs['nfs_server']
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
