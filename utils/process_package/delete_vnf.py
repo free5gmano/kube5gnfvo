@@ -21,6 +21,8 @@ from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 from utils.file_manipulation import remove_file
+from os_ma_nfvo import settings
+
 
 
 class DeleteService(ProcessVNFInstance):
