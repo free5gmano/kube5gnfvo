@@ -17,7 +17,6 @@ from abc import abstractmethod
 from VnfPackageManagement.serializers import vnf_package_base_path
 from utils.file_manipulation import walk_file
 from utils.process_package.base_process import BaseProcess
-from utils.onos_client import ONOSClient
 
 
 class ProcessVNFInstance(BaseProcess):
@@ -25,7 +24,6 @@ class ProcessVNFInstance(BaseProcess):
     def __init__(self, package_id, vnf_instance_name=None):
         super().__init__(package_id)
         self.vnf_instance_name = None
-        # self.onos_client = ONOSClient()
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
 
@@ -200,11 +198,3 @@ class ProcessVNFInstance(BaseProcess):
     @abstractmethod
     def process_horizontal_pod_autoscaler(self, **kwargs):
         pass
-
-    def process_onos_sf(self, rate):
-        response = dict()
-        response['SfInfo'] = dict()
-        response['SfInfo']['domain'] = '{}.imac.edu'.format(self.vnf_instance_name.lower())
-        response['SfInfo']['ipAddress'] = self.etcd_client.get_specific_saved_ip_address()
-        response['SfInfo']['rate'] = rate
-        self.onos_client.notification_sf_info(response)
