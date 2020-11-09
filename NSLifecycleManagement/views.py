@@ -33,7 +33,6 @@ from utils.notification_management.kafka_notification import KafkaNotification
 from utils.process_package.base_package import not_instantiated, not_in_use, instantiated, in_use
 from utils.process_package.create_vnf import CreateService
 from utils.process_package.delete_vnf import DeleteService
-from utils.process_package.process_fp_instance import ProcessFPInstance
 
 
 def set_ns_lcm_op_occ(ns_instance, request, vnf_instances, lcm_operation_type):
