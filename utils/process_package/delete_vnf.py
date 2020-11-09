@@ -56,11 +56,12 @@ class DeleteService(ProcessVNFInstance):
     def process_persistent_volume(self, **kwargs):
         vdu = kwargs['vdu']
         client = PersistentVolumeClient(instance_name=self.vnf_instance_name)
-        client.handle_delete()
         if vdu.requirements['type_of_storage'] == 'nfs':
             remove_file("{}{}".format(settings.NFS_PATH, self.vnf_instance_name))
+            client.handle_delete()
         elif vdu.requirements['type_of_storage'] == 'local' or vdu.requirements['type_of_storage'] == 'volume':
             remove_file("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
+            client.handle_delete()
         else:
             raise APIException(detail='storage type only local or nfs',
                                    code=status.HTTP_409_CONFLICT)
