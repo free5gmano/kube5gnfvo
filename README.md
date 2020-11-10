@@ -109,7 +109,7 @@ kubectl apply -f ./
 >Please refer to [KubeVirt Quickstart with Minikube](https://github.com/kubevirt/client-python) to deploy kubevirt-py.
 ##### Or follow the instructions
 ```shell=
-pip3 install git+https://github.com/kubevirt/client-python.git
+pip3 install git+https://github.com/yanyan8566/client-python
 ```
 
 ## Quick Start
