@@ -282,7 +282,7 @@ spec:
     spec:
       serviceAccountName: kube5gnfvo
       containers:
-      - image: free5gmano/kube5gnfvo-stage2
+      - image: u8566789/kube5gnfvo-stage2:v1
         name: kube5gnfvo
         env:
         - name: DATABASE_PASSWORD
@@ -303,10 +303,19 @@ spec:
         - name: kube5gnfvo-vnf-package
           mountPath: /root/VnfPackage
           subPath: VnfPackage
+        - name: kube-config
+          mountPath: /root/config
+          subPath: config
       volumes:
       - name: kube5gnfvo-vnf-package
         persistentVolumeClaim:
           claimName: kube5gnfvo-pvc
+      - name: kube-config
+        configMap:
+          name: kube5gnfvo-config
+          items:
+          - key: config
+            path: config
 ---
 apiVersion: v1
 kind: Service

@@ -1,17 +1,3 @@
-# All Rights Reserved.
-#
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
 import os
 
 from django.utils.crypto import random
@@ -19,7 +5,8 @@ from django.utils.crypto import random
 from VIMManagement.utils.kubernetes_api import KubernetesApi
 from utils.etcd_client.etcd_client import EtcdClient
 
-# TODO only testing ubuntu image
+
+# TODO only create ubuntu image
 from utils.tosca_paser.cp_template import SR_IOV, OVS
 
 
@@ -47,16 +34,16 @@ class VirtualMachineInstance(KubernetesApi):
     def instance_specific_resource(self, **kwargs):
         virtual_machine_instance_match_label = {
             "app": self.name_of_service if self.name_of_service else self.instance_name}
-        virtual_machine_instance_meta = self.kubernetes_client.V1ObjectMeta(labels=virtual_machine_instance_match_label)
+        virtual_machine_instance_meta = self.kubevirt_client.K8sIoApimachineryPkgApisMetaV1ObjectMeta(labels=virtual_machine_instance_match_label)
         vmirs_spec = self.kubevirt_client.V1VirtualMachineInstanceReplicaSetSpec(
             replicas=self.replicas,
-            selector=self.kubevirt_client.V1LabelSelector(match_labels=virtual_machine_instance_match_label),
+            selector=self.kubevirt_client.K8sIoApimachineryPkgApisMetaV1LabelSelector(match_labels=virtual_machine_instance_match_label),
             template=self.kubevirt_client.V1VirtualMachineInstanceTemplateSpec(
                 spec=self._get_virtual_machine_instance_replica_set_spec(), metadata=virtual_machine_instance_meta))
         vmirs = self.kubevirt_client.V1VirtualMachineInstanceReplicaSet(
             api_version="kubevirt.io/v1alpha3", kind="VirtualMachineInstanceReplicaSet", spec=vmirs_spec)
-        vmirs.metadata = self.kubernetes_client.V1ObjectMeta(
-            name=self.instance_name, namespace=self.namespace, labels=self.labels)
+        vmirs.metadata = self.kubevirt_client.K8sIoApimachineryPkgApisMetaV1ObjectMeta(
+            name=self.instance_name, labels=virtual_machine_instance_match_label, namespace=self.namespace)
         return vmirs
 
     def _get_virtual_machine_instance_replica_set_spec(self):
@@ -81,6 +68,7 @@ class VirtualMachineInstance(KubernetesApi):
                 serial = self._get_serial()
                 path = os.path.split(_.strip())
                 disk_name = path[1].lower() if "." not in path[1] else path[1].split(".")[0].lower()
+                print(disk_name)
                 disks.append(self.kubevirt_client.V1Disk(
                     name=disk_name, serial=serial, disk=self.kubevirt_client.V1DiskTarget()))
                 mount_script += self._mount_configmap(path=path[0], serial=serial)
@@ -97,25 +85,24 @@ class VirtualMachineInstance(KubernetesApi):
             for idx, net_info in enumerate(self.network_name):
                 if net_info['type'] == SR_IOV:
                     interface.append(self.kubevirt_client.V1Interface(
-                        name='{}-{}{}'.format(self.instance_name, net_info['network_name'], idx),
+                        name='{}-{}'.format(self.instance_name, net_info['network_name']),
                         sriov=self.kubevirt_client.V1InterfaceSRIOV()))
                 elif net_info['type'] == OVS:
                     interface.append(self.kubevirt_client.V1Interface(
-                        name='{}-{}{}'.format(self.instance_name, net_info['network_name'], idx),
+                        name='{}-{}'.format(self.instance_name, net_info['network_name']),
                         bridge=self.kubevirt_client.V1InterfaceBridge()))
                 networks.append(
                     self.kubevirt_client.V1Network(
-                        name='{}-{}{}'.format(self.instance_name, net_info['network_name'], idx),
+                        name='{}-{}'.format(self.instance_name, net_info['network_name']),
                         multus=self.kubevirt_client.V1MultusNetwork(network_name=net_info['network_name'])))
 
                 # TODO ovs-cni can not setting interface name
+                # ubuntu default interface name (enp2s0)
                 interface_name_count = idx + 2
-                interface_name = 'enp{}'.format(interface_name_count)
-                mount_script += self._multiple_interface(interface_name, net_info['ip_address'][idx])
+                interface_name = 'enp{}s0'.format(interface_name_count)
+                mount_script += self._multiple_interface(interface_name, net_info['ip_address'])
+                # mount_script += self._multiple_interface(interface_name, self.etcd_client.get_vm_cidr())
                 interface_name_count += 1
-            mount_script += "count=2;for net in `ip link | grep mtu |cut -d ':' -f 2| tail -n {}`;do \
-                            sed -i \"s/enp$count/$net/g\" /etc/network/interfaces.d/50-cloud-init.cfg;\
-                            count=$(($count+1));  done\n".format(len(self.network_name))
             mount_script += '/etc/init.d/networking restart\n'
         if self.command:
             for _ in self.command:
@@ -133,16 +120,19 @@ class VirtualMachineInstance(KubernetesApi):
         return virtual_machine_instance_spec
 
     def patch_resource(self, **kwargs):
+        # vmi.spec.template.spec.domain.resources.requests['memory'] = '512M'
         self.kubevirt_api.replace_namespaced_virtual_machine_instance_replica_set(
             name=self.instance_name, namespace=self.namespace, body=self.resource)
+        # self._restart_vmis()
 
     def delete_resource(self, **kwargs):
         self.kubevirt_api.delete_namespaced_virtual_machine_instance_replica_set(
-            namespace=self.namespace, name=self.instance_name, body=self.kubevirt_client.V1DeleteOptions())
+            namespace=self.namespace, name=self.instance_name, body=self.kubevirt_client.K8sIoApimachineryPkgApisMetaV1DeleteOptions())
 
     def create_resource(self, **kwargs):
-        self.kubevirt_api.create_namespaced_virtual_machine_instance_replica_set(
-            namespace=self.namespace, body=self.resource)
+        body = self.resource
+        namespace = self.namespace
+        api_response = self.kubevirt_api.create_namespaced_virtual_machine_instance_replica_set(body, namespace)
 
     def read_resource(self, **kwargs):
         try:
@@ -150,8 +140,7 @@ class VirtualMachineInstance(KubernetesApi):
                 name=self.instance_name, namespace=self.namespace)
         except self.kubevirt_client.api_client.ApiException as e:
             if e.status == 404:
-                print(
-                    "Exception when calling DefaultApi->read_namespaced_virtual_machine_instance_replica_set: %s\n" % e)
+                print("Exception when calling DefaultApi->read_namespaced_virtual_machine_instance_replica_set: %s\n" % e)
                 return None
             raise
         return resource
