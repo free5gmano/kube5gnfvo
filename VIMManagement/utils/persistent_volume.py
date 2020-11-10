@@ -14,13 +14,19 @@
 #    under the License.
 
 from VIMManagement.utils.kubernetes_api import KubernetesApi
-from os_ma_nfvo.settings import VOLUME_PATH
+import os_ma_nfvo.settings as setting
 
 
 class PersistentVolumeClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         if 'storage_size' in kwargs:
             self.storage_size = kwargs['storage_size']
+        if 'storage_type' in kwargs:
+            self.storage_type = kwargs['storage_type']
+        if 'nfs_path' in kwargs:
+            self.nfs_path = kwargs['nfs_path']
+        if 'nfs_server' in kwargs:
+            self.nfs_server = kwargs['nfs_server']
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -39,10 +45,20 @@ class PersistentVolumeClient(KubernetesApi):
     def instance_specific_resource(self, **kwargs):
         persistent_volume = self.kubernetes_client.V1PersistentVolume(
             api_version='v1', kind='PersistentVolume')
-        persistent_volume.metadata = self.kubernetes_client.V1ObjectMeta(
-            name=self.instance_name, labels={"name": self.instance_name})
-        persistent_volume.spec = self.kubernetes_client.V1PersistentVolumeSpec(
-            capacity={"storage": self.storage_size}, access_modes=["ReadWriteOnce"],
-            host_path=self.kubernetes_client.V1HostPathVolumeSource(
-                path='{}{}'.format(VOLUME_PATH, self.instance_name)))
+        persistent_volume.metadata = self.kubernetes_client.V1ObjectMeta(name=self.instance_name,
+                                                                         labels={"name": self.instance_name})
+        if self.storage_type == 'nfs':
+            persistent_volume.spec = self.kubernetes_client.V1PersistentVolumeSpec(
+                capacity={"storage": self.storage_size}, access_modes=["ReadWriteOnce"],
+                nfs=self.kubernetes_client.V1NFSVolumeSource(
+                    path='{}'.format(self.nfs_path),
+                    server='{}'.format(self.nfs_server)))
+        elif self.storage_type == 'volume' or self.storage_type == 'local':
+            persistent_volume.spec = self.kubernetes_client.V1PersistentVolumeSpec(
+                capacity={"storage": self.storage_size}, access_modes=["ReadWriteOnce"],
+                host_path=self.kubernetes_client.V1HostPathVolumeSource(
+                    path='{}{}'.format(setting.VOLUME_PATH, self.instance_name)))
+        else:
+            raise APIException(detail='storage type only local or nfs',
+                                   code=status.HTTP_409_CONFLICT)
         return persistent_volume

@@ -72,6 +72,7 @@ class VirtualMachineReplicaSetStatus(dict, metaclass=Singleton):
 class BaseKubernetes(object):
     def __init__(self, *args, **kwargs):
         self.kubernetes_client = client
+        # self.kubeconfig = os.path.expanduser("~/.kube/config")
         self.kubeconfig = os.path.expanduser("/root/config")
         config.load_kube_config(config_file=self.kubeconfig)
         kube_config_loader = config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)

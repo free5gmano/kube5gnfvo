@@ -60,10 +60,24 @@ class CreateService(ProcessVNFInstance):
 
     def process_persistent_volume(self, **kwargs):
         vdu = kwargs['vdu']
-        client = PersistentVolumeClient(instance_name=self.vnf_instance_name,
-                                        storage_size=vdu.requirements['size_of_storage'])
-        client.handle_create_or_update()
-        create_dir("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
+        if vdu.requirements['type_of_storage'] == 'nfs':
+            client = PersistentVolumeClient(instance_name=self.vnf_instance_name,
+                                        storage_size=vdu.requirements['size_of_storage'],
+                                        storage_type=vdu.requirements['type_of_storage'],
+                                        nfs_server=vdu.requirements['server_of_storage'],
+                                        nfs_path=vdu.requirements['path_of_storage'])
+            client.handle_create_or_update()
+            mount_dir(nfs_server=vdu.requirements['server_of_storage'],nfs_path=vdu.requirements['path_of_storage'])
+            create_dir("{}{}".format(settings.NFS_PATH, self.vnf_instance_name))
+        elif vdu.requirements['type_of_storage'] == 'volume' or vdu.requirements['type_of_storage'] == 'local':
+            client = PersistentVolumeClient(instance_name=self.vnf_instance_name,
+                                        storage_size=vdu.requirements['size_of_storage'],
+                                        storage_type=vdu.requirements['type_of_storage'])
+            client.handle_create_or_update()
+            create_dir("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
+        else:
+            raise APIException(detail='storage type only local or nfs',
+                                   code=status.HTTP_409_CONFLICT)
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         vdu = kwargs['vdu']

@@ -33,24 +33,6 @@ from utils.notification_management.kafka_notification import KafkaNotification
 from utils.process_package.base_package import not_instantiated, not_in_use, instantiated, in_use
 from utils.process_package.create_vnf import CreateService
 from utils.process_package.delete_vnf import DeleteService
-from utils.process_package.process_fp_instance import ProcessFPInstance
-
-
-def get_vnffg(nsd_id) -> list:
-    vnffg_list = list()
-    process_vnffg = ProcessFPInstance(nsd_id)
-    if process_vnffg.vnffg_info:
-        for vnffg in process_vnffg.vnffg_info:
-            vnffg_info = dict()
-            vnffg_info['vnffgdId'] = vnffg['vnffgdId']
-            vnffg_info['vnfInstanceId'] = json.dumps(vnffg['constituent_vnfd'])
-            vnffg_info['nsCpHandle'] = list()
-            for cp in vnffg['connection_point']:
-                ns_cp_handle = dict()
-                ns_cp_handle['vnfExtCpInstanceId'] = cp
-                vnffg_info['nsCpHandle'].append(ns_cp_handle)
-            vnffg_list.append(vnffg_info)
-    return vnffg_list
 
 
 def set_ns_lcm_op_occ(ns_instance, request, vnf_instances, lcm_operation_type):
@@ -119,7 +101,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
         request.data['nsdId'] = request.data['nsdId']
         request.data['vnfInstance'] = get_vnf_instance(vnf_pkg_Ids)
         request.data['_links'] = {'self': request.build_absolute_uri()}
-        request.data['vnffgInfo'] = get_vnffg(nsd_info_id)
 
         return super().create(request)
 
@@ -172,9 +153,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             The POST method requests to instantiate a NS instance resource.
         """
         ns_instance = self.get_object()
-        # if not_instantiated != ns_instance.nsState:
-        #     raise APIException(detail='Network Service Instance State have been {}'.format(not_instantiated),
-        #                        code=status.HTTP_409_CONFLICT)
 
         if 'vnfInstanceData' not in request.data:
             raise APIException(detail='vnfInstanceData is not existing',
@@ -182,9 +160,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
 
         vnf_instance_list = list()
         vnf_instance_data = request.data.pop('vnfInstanceData')
-        process_vnffg = None
-        if ns_instance.NsInstance_VnffgInfo.last() is not None:
-            process_vnffg = ProcessFPInstance(str(ns_instance.nsdInfoId))
 
         for vnf_instance_info in vnf_instance_data:
             if 'vnfInstanceId' not in vnf_instance_info:
@@ -206,8 +181,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             ).start()
 
             vnf_instance_list.append(vnf_instance)
-            if process_vnffg:
-                process_vnffg.mapping_rsp(vnf_instance.vnfdId, vnf_instance.vnfInstanceName)
 
         set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.instantiate)
         self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.instantiate,
@@ -215,8 +188,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                                         container_phase='Running',
                                         ns_state=instantiated,
                                         usage_state=in_use)
-        if process_vnffg:
-            process_vnffg.process_instance()
 
         ns_instance.nsState = instantiated
         ns_instance.save()
@@ -345,9 +316,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                                code=status.HTTP_409_CONFLICT)
 
         vnf_instance_list = list()
-        process_vnffg = None
-        if ns_instance.NsInstance_VnffgInfo.last() is not None:
-            process_vnffg = ProcessFPInstance(str(ns_instance.nsdInfoId))
 
         for vnf_instance in ns_instance.NsInstance_VnfInstance.all():
             vnf_instance.VnfInstance_instantiatedVnfInfo.vnfState = 'STOPPED'
@@ -360,8 +328,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             self.etcd_client.set_deploy_name(instance_name=vnf_instance.vnfInstanceName.lower(), pod_name=None)
             self.etcd_client.release_pod_ip_address()
             vnf_instance_list.append(vnf_instance)
-            if process_vnffg:
-                process_vnffg.mapping_rsp(vnf_instance.vnfdId, vnf_instance.vnfInstanceName)
 
         set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.terminate)
         self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.terminate,
@@ -369,8 +335,6 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                                         container_phase='Terminating',
                                         ns_state=not_instantiated,
                                         usage_state=not_in_use)
-        if process_vnffg:
-            process_vnffg.remove_vnffg()
 
         ns_instance.nsState = not_instantiated
         ns_instance.save()

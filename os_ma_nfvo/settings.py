@@ -28,11 +28,11 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NFS_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
 VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_volume/'
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
 DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
 DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
-ONOS_IP = os.getenv('ONOS_IP', 'http://10.0.0.72:8181/onos/sfc/sfc/')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -114,6 +114,10 @@ DATABASES = {
         'HOST': DATABASE_HOST,
         'PORT': DATABASE_PORT,
     }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    # }
 }
 
 # Password validation
