@@ -102,7 +102,9 @@ kubectl apply -f prom-node-exporter.yaml
 ##### Or follow the instructions
 ```shell=
 cd kube5gnfvo/example/kubevirt/
-kubectl apply -f ./
+kubectl apply -f kubevirt-operator.yaml
+(Please make sure that virt-operator pod in Kubernetes has been Running)
+kubectl apply -f kubevirt-cr.yaml
 ```
 
 ### kubevirt-py
