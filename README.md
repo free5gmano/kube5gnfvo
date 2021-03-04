@@ -21,7 +21,8 @@
 ### Kubernetes
 Please refer to [Bootstrapping clusters with kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/) to install Kubernetes.
 >Using Kubernetes version: v1.15.3
->Support Kubernetes version: v1.15 to v1.18
+
+>Support Kubernetes version to v1.18
 
 ##### on ubuntu
 ```shell=
