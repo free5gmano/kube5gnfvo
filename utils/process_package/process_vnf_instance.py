@@ -161,7 +161,7 @@ class ProcessVNFInstance(BaseProcess):
                 if "." not in path[1]:
                     artifacts_name = path[1]
                 else:
-                    artifacts_name = path[1].split(".")[0]
+                    artifacts_name = (path[0].split('/')[path[0].split('/').__len__()-1]+'-'+path[1].split(".")[0]).lower()
 
                 self.process_config_map(artifacts_path=self.root_path + artifact['file'],
                                         artifacts_name=artifacts_name.lower(), namespace=vdu.attributes['namespace'])
