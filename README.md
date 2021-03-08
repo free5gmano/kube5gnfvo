@@ -22,6 +22,8 @@
 Please refer to [Bootstrapping clusters with kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/) to install Kubernetes.
 >Using Kubernetes version: v1.15.3
 
+>Support Kubernetes version to v1.18
+
 ##### on ubuntu
 ```shell=
 apt-get install -y kubelet=1.15.3-00 kubeadm=1.15.3-00 kubectl=1.15.3-00 --allow-downgrades
@@ -34,7 +36,11 @@ apt-get install -y kubelet=1.15.3-00 kubeadm=1.15.3-00 kubectl=1.15.3-00 --allow
 cd kube5gnfvo/example/
 kubectl apply -f multus-daemonset-pre-1.16.yml
 ```
-
+>If using v1.16 or higher
+```shell=
+cd kube5gnfvo/example/
+kubectl apply -f multus-daemonset.yml
+```
 ### OpenvSwitch
 >Please refer to [Open vSwitch Installation Guide](http://docs.openvswitch.org/en/latest/intro/install/#) to install OpenvSwitch.
 ##### Or follow the instructions
@@ -45,6 +51,11 @@ ovs-vsctl add-br br1
 ### OVS-CNI
 >Please refer to [Kubevirt OVS CNI](https://github.com/kubevirt/ovs-cni) to install ovs-cni.
 ##### Or follow the instructions
+```shell=
+cd kube5gnfvo/example/
+kubectl apply -f ovs-cni-pre-1.16.yaml
+```
+>If using v1.16 or higher
 ```shell=
 cd kube5gnfvo/example/
 kubectl apply -f ovs-cni.yaml
@@ -71,6 +82,15 @@ kubectl apply -f ovs-net-crd.yaml
 ### Etcd Operator
 >Please refer to [Coreos Etcd Operator Readme](https://github.com/coreos/etcd-operator/blob/master/README.md) to install etcd cluster.
 ##### Or follow the instructions
+```shell=
+cd kube5gnfvo/example/etcd-cluster/rbac/
+./create_role.sh
+cd ../etcd-pre-1.16
+kubectl apply -f deployment.yaml
+(Please make sure that etcdclusters.etcd.database.coreos.com CRD in Kubernetes has been created)
+kubectl apply -f ./
+```
+>If using v1.16 or higher
 ```shell=
 cd kube5gnfvo/example/etcd-cluster/rbac/
 ./create_role.sh

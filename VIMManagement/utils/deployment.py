@@ -81,7 +81,7 @@ class DeploymentClient(KubernetesApi):
                     key_name = path[1].lower()
                 else:
                     dot_path_list = path[1].split('.')
-                    key_name = dot_path_list[0].lower()
+                    key_name = (path[0].split('/')[path[0].split('/').__len__()-1]+'-'+dot_path_list[0]).lower()
                     if 'sh' in dot_path_list[1].lower():
                         default_mode = 0o777
 
