@@ -1,0 +1,22 @@
+{
+    "kind": "Service",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "expose-dual-network-nic-etcd-cluster"
+    },
+    "spec": {
+        "selector": {
+            "etcd_cluster": "dual-network-nic-etcd-cluster",
+            "app": "etcd"
+        },
+        "ports": [
+            {
+                "protocol": "TCP",
+                "port": 2379,
+                "targetPort": 2379,
+                "nodePort": 32379
+            }
+        ],
+        "type": "NodePort"
+    }
+}
