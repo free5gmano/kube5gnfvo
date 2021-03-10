@@ -304,7 +304,7 @@ spec:
     spec:
       serviceAccountName: kube5gnfvo
       containers:
-      - image: free5gmano/kube5gnfvo-stage2:v1
+      - image: free5gmano/kube5gnfvo-stage2
         name: kube5gnfvo
         env:
         - name: DATABASE_PASSWORD
