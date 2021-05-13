@@ -103,7 +103,7 @@ kubectl apply -f ./
 >Please refer to [Kubernetes Metrics Server Readme](https://github.com/kubernetes-sigs/metrics-server/blob/master/README.md) to deploy metrics server.
 ##### Or follow the instructions
 ```shell=
-cd kube5gnfvo/example/metrics-server/fcd ../etcd-pre-1.16
+cd kube5gnfvo/example/metrics-server/cd ../etcd-pre-1.16
 kubectl apply -f ./
 ```
 ### Node Exporter
