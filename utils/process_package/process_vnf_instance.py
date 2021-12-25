@@ -114,7 +114,7 @@ class ProcessVNFInstance(BaseProcess):
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
-
+            self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
@@ -193,7 +193,9 @@ class ProcessVNFInstance(BaseProcess):
     @abstractmethod
     def process_config_map(self, **kwargs):
         pass
-
+    @abstractmethod
+    def process_namespace(self, **kwargs):
+        pass
     @abstractmethod
     def process_horizontal_pod_autoscaler(self, **kwargs):
         pass
