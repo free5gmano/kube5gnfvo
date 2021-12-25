@@ -78,6 +78,14 @@ class CreateService(ProcessVNFInstance):
         else:
             raise APIException(detail='storage type only local or nfs',
                                    code=status.HTTP_409_CONFLICT)
+    def process_namespace(self, **kwargs):
+        vdu = kwargs['vdu']
+        namespace = vdu.attributes['namespace']
+        from VIMManagement.utils.namespace import NameSpaceClient
+        client = NameSpaceClient(namespace=namespace)
+        client.handle_create_or_update()
+        if 'default' not in namespace:
+            cmd = self._run_ovs_cni_crd(namespace=namespace)
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
         vdu = kwargs['vdu']
