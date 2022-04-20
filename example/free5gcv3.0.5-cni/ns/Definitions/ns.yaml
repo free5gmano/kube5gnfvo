@@ -1,0 +1,24 @@
+tosca_definitions_version: tosca_simple_yaml_1_2
+
+topology_template:
+  node_templates:
+    NS1:
+      type: tosca.nodes.nfv.NS
+      properties:
+        descriptor_id: 1fad2266-31b2-40a3-8222-67ef4dcc84a6
+        designer: imac
+        version: 1.0
+        name: free5gc-stage3.0.5
+        invariant_id: 1111-2222-aaaa-bbbb
+        constituent_vnfd:
+          - vnfd_id: 6c25674c-a1c4-44b5-bfaa-f3025mongodb
+          - vnfd_id: 62dd9ac1-6f44-4039-9c9c-95eafb73bnrf
+          - vnfd_id: 0f93e804-25e9-4315-9810-50f17afb6upf
+          - vnfd_id: 62dd9ac1-6f44-4039-9c9c-95eafb73bamf
+          - vnfd_id: 870a901f-1eda-4b9c-8162-4a68c1d0ausf
+          - vnfd_id: 870a901f-1eda-4b9c-8162-4a68c1d0nssf
+          - vnfd_id: 62dd9ac1-6f44-4039-9c9c-95eafb73bpcf
+          - vnfd_id: 5dbe2627-4249-4ca4-96d6-65c4d25efsmf
+          - vnfd_id: 5dbe2627-4249-4ca4-96d6-65c4d25efudm
+          - vnfd_id: 5dbe2627-4249-4ca4-96d6-65c4d25efudr
+          - vnfd_id: 5dbe2627-4249-4ca4-96d6-65c4d25webui
