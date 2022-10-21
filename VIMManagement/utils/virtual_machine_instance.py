@@ -3,7 +3,7 @@ import os
 from django.utils.crypto import random
 
 from VIMManagement.utils.kubernetes_api import KubernetesApi
-from utils.etcd_client.etcd_client import EtcdClient
+# from utils.etcd_client.etcd_client import EtcdClient
 
 
 # TODO only create ubuntu image
@@ -28,8 +28,8 @@ class VirtualMachineInstance(KubernetesApi):
         if 'ports' in kwargs and 'name_of_service' in kwargs:
             self.name_of_service = kwargs['name_of_service']
         super().__init__(*args, **kwargs)
-        self.etcd_client = EtcdClient()
-        self.etcd_client.set_deploy_name(instance_name=self.instance_name, pod_name=None)
+        # self.etcd_client = EtcdClient()
+        # self.etcd_client.set_deploy_name(instance_name=self.instance_name, pod_name=None)
 
     def instance_specific_resource(self, **kwargs):
         virtual_machine_instance_match_label = {

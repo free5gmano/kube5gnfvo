@@ -19,6 +19,4 @@ urllib3==1.25.3
 websocket-client==0.56.0   
 etcd3
 Django==2.2
-django-mysql
-mysqlclient
 drf_yasg==1.17.0

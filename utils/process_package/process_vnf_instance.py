@@ -33,7 +33,7 @@ class ProcessVNFInstance(BaseProcess):
 
     # TODO
     def _process_network(self, net_list, vdu_info, isTemplate=False, max_instances=None):
-        self.etcd_client.set_deploy_name(instance_name=self.vnf_instance_name, pod_name=None)
+        # self.etcd_client.set_deploy_name(instance_name=self.vnf_instance_name, pod_name=None)
         ip_address = list()
         network_name_list = list()
         ext_cp_info = list()
@@ -50,14 +50,14 @@ class ProcessVNFInstance(BaseProcess):
                     cidr = vl_info.properties['cidr']
                     ip_address.append(cidr)
                     ip_address_mask = cidr.split('/')
-                    self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
+                    # self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
                 elif vl_info.properties['dhcp_enabled']:
                     dhcp_enabled = True
-                    if max_instances:
-                        ip_address = [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
-                    else:
-                        ip_address = [self.etcd_client.create_ip_pool() for _ in
-                                      range(vdu_info.attributes['replicas'])]
+                    # if max_instances:
+                    #     ip_address = [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
+                    # else:
+                    #     ip_address = [self.etcd_client.create_ip_pool() for _ in
+                    #                   range(vdu_info.attributes['replicas'])]
 
                 if isTemplate:
                     vnf_ext_cp_info_info = dict()

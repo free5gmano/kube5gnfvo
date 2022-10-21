@@ -21,14 +21,14 @@ from rest_framework.exceptions import APIException
 from NSDManagement.models import NsdInfo
 from NSLifecycleManagement.models import NsInstance
 from NSLifecycleManagement.serializers import NsInstanceSerializer
-from NSLifecycleManagement.utils.monitor_vnf import MonitorVnf
+# from NSLifecycleManagement.utils.monitor_vnf import MonitorVnf
 from django.utils import timezone
 from NSLCMOperationOccurrences.models import Links, NsLcmOpOcc, ResourceChanges
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from NSLifecycleManagement.utils.process_vnf_model import get_vnf_instance, create_vnf_instance
-from utils.etcd_client.etcd_client import EtcdClient
+# from utils.etcd_client.etcd_client import EtcdClient
 from utils.notification_management.kafka_notification import KafkaNotification
 from utils.process_package.base_package import not_instantiated, not_in_use, instantiated, in_use
 from utils.process_package.create_vnf import CreateService
@@ -66,8 +66,8 @@ def set_ns_lcm_op_occ(ns_instance, request, vnf_instances, lcm_operation_type):
 class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
     queryset = NsInstance.objects.all()
     serializer_class = NsInstanceSerializer
-    monitor_vnf = MonitorVnf()
-    etcd_client = EtcdClient()
+    # monitor_vnf = MonitorVnf()
+    # etcd_client = EtcdClient()
     kafka_notification = KafkaNotification('ns_instance')
 
     def create(self, request, **kwargs):
@@ -182,12 +182,12 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
 
             vnf_instance_list.append(vnf_instance)
 
-        set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.instantiate)
-        self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.instantiate,
-                                        vnf_instances=vnf_instance_list,
-                                        container_phase='Running',
-                                        ns_state=instantiated,
-                                        usage_state=in_use)
+        # set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.instantiate)
+        # self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.instantiate,
+                                        # vnf_instances=vnf_instance_list,
+                                        # container_phase='Running',
+                                        # ns_state=instantiated,
+                                        # usage_state=in_use)
 
         ns_instance.nsState = instantiated
         ns_instance.save()
@@ -225,11 +225,11 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                             replicas=replicas, virtual_mem_size=virtual_mem_size, num_virtual_cpu=num_virtual_cpu)
                         vnf_instance_list.append(vnf_instance)
             set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, 'SCALE')
-            self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.scale,
-                                            vnf_instances=vnf_instance_list,
-                                            container_phase='Running',
-                                            ns_state=instantiated,
-                                            usage_state=in_use)
+            # self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.scale,
+                                            # vnf_instances=vnf_instance_list,
+                                            # container_phase='Running',
+                                            # ns_state=instantiated,
+                                            # usage_state=in_use)
             return Response(status=status.HTTP_202_ACCEPTED,
                             headers={'Location': ns_instance.NsInstance_links.link_self})
 
@@ -290,12 +290,12 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             delete_network_service.process_instance()
             vnf_instance_list.append(vnf_instance)
 
-        set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.update)
-        self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.update,
-                                        vnf_instances=vnf_instance_list,
-                                        container_phase='Running',
-                                        ns_state=instantiated,
-                                        usage_state=in_use)
+        # set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.update)
+        # self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.update,
+                                        # vnf_instances=vnf_instance_list,
+                                        # container_phase='Running',
+                                        # ns_state=instantiated,
+                                        # usage_state=in_use)
         return Response(status=status.HTTP_202_ACCEPTED, headers={'Location': ns_instance.NsInstance_links.link_self})
 
     @action(detail=True, methods=['POST'], url_path='terminate')
@@ -325,16 +325,16 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                 target=partial(delete_network_service.process_instance),
                 daemon=True
             ).start()
-            self.etcd_client.set_deploy_name(instance_name=vnf_instance.vnfInstanceName.lower(), pod_name=None)
-            self.etcd_client.release_pod_ip_address()
+            # self.etcd_client.set_deploy_name(instance_name=vnf_instance.vnfInstanceName.lower(), pod_name=None)
+            # self.etcd_client.release_pod_ip_address()
             vnf_instance_list.append(vnf_instance)
 
-        set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.terminate)
-        self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.terminate,
-                                        vnf_instances=vnf_instance_list,
-                                        container_phase='Terminating',
-                                        ns_state=not_instantiated,
-                                        usage_state=not_in_use)
+        # set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, self.monitor_vnf.terminate)
+        # self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.terminate,
+        #                                 vnf_instances=vnf_instance_list,
+        #                                 container_phase='Terminating',
+        #                                 ns_state=not_instantiated,
+        #                                 usage_state=not_in_use)
 
         ns_instance.nsState = not_instantiated
         ns_instance.save()

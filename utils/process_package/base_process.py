@@ -14,7 +14,7 @@
 #    under the License.
 from abc import abstractmethod
 
-from utils.etcd_client.etcd_client import EtcdClient
+# from utils.etcd_client.etcd_client import EtcdClient
 from utils.process_package.base_package import BasePackage
 
 
@@ -22,7 +22,7 @@ class BaseProcess(BasePackage):
     def __init__(self, package_id):
         self.package_id = package_id
         super().__init__(self.get_root_path())
-        self.etcd_client = EtcdClient()
+        # self.etcd_client = EtcdClient()
 
     @abstractmethod
     def get_root_path(self):
