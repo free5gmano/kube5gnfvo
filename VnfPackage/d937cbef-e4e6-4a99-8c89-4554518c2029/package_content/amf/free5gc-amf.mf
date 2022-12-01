@@ -1,5 +1,0 @@
-metadata:
-vnf_product_name: amf
-vnf_provider_id: imac
-vnf_package_version: 1.2
-vnf_release_date_time: 2022-01-20T11:20:43+03:00
