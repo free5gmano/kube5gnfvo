@@ -18,6 +18,7 @@ from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscale
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
+from VIMManagement.utils.network_policy import NetworkPolicyClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
@@ -51,6 +52,13 @@ class CreateService(ProcessVNFInstance):
             service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
         client.handle_create_or_update()
 
+    def process_network_policy(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = NetworkPolicyClient(
+            instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
+            network_policy=vdu.attributes['tenant'])
+        client.handle_create_or_update()
+
     def process_persistent_volume_claim(self, **kwargs):
         vdu = kwargs['vdu']
         client = PersistentVolumeClaimClient(
@@ -81,10 +89,11 @@ class CreateService(ProcessVNFInstance):
     def process_namespace(self, **kwargs):
         vdu = kwargs['vdu']
         namespace = vdu.attributes['namespace']
+
         from VIMManagement.utils.namespace import NameSpaceClient
         client = NameSpaceClient(namespace=namespace)
         client.handle_create_or_update()
-        if 'default' not in namespace:
+        if 'default' not in namespace and not vdu.attributes['tenant']:
             cmd = self._run_ovs_cni_crd(namespace=namespace)
 
     def process_horizontal_pod_autoscaler(self, **kwargs):

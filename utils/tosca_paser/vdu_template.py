@@ -23,9 +23,9 @@ class VDUTemplate(EntityTemplate):
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
-                      NAME_OF_SERVICE, IS_EXPORT_SERVICE, PROTOCOL) = \
+                      NAME_OF_SERVICE, TENANT, IS_EXPORT_SERVICE, PROTOCOL) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
-         'name_of_service', 'is_export_service', 'protocol')
+         'name_of_service', 'tenant', 'is_export_service', 'protocol')
     VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
     VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS) = ('command', 'env', 'ports')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
