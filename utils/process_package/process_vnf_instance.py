@@ -50,14 +50,8 @@ class ProcessVNFInstance(BaseProcess):
                     cidr = vl_info.properties['cidr']
                     ip_address.append(cidr)
                     ip_address_mask = cidr.split('/')
-                    # self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
                 elif vl_info.properties['dhcp_enabled']:
                     dhcp_enabled = True
-                    # if max_instances:
-                    #     ip_address = [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
-                    # else:
-                    #     ip_address = [self.etcd_client.create_ip_pool() for _ in
-                    #                   range(vdu_info.attributes['replicas'])]
 
                 if isTemplate:
                     vnf_ext_cp_info_info = dict()
@@ -119,6 +113,9 @@ class ProcessVNFInstance(BaseProcess):
 
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
                 self.process_service(vdu=vdu)
+
+            if vdu.attributes['tenant']:
+                self.process_network_policy(vdu=vdu)
 
             if vdu.requirements and vdu.requirements['size_of_storage'] and vdu.requirements['path_of_storage']:
                 vdu_info.update(vdu.requirements)

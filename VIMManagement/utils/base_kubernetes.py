@@ -92,3 +92,5 @@ class BaseKubernetes(object):
         self.pod_status = PodStatus()
         self.virtual_machine_status = VirtualMachineStatus()
         self.virtual_machine_replica_set = VirtualMachineReplicaSetStatus()
+        self.networking_v1 = self.kubernetes_client.NetworkingV1Api()
+        self.network_policy_v1 = self.kubernetes_client.V1NetworkPolicy()

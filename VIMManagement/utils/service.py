@@ -1,3 +1,4 @@
+import random
 from VIMManagement.utils.kubernetes_api import KubernetesApi
 
 
@@ -14,7 +15,13 @@ class ServiceClient(KubernetesApi):
         return self.core_v1.read_namespaced_service(self.instance_name, self.namespace)
 
     def create_resource(self, **kwargs):
-        self.core_v1.create_namespaced_service(self.namespace, self.resource)
+        print(self.resource)
+        try:
+            self.core_v1.create_namespaced_service(self.instance_name, self.resource)
+        except:
+            resource = self.resource.to_dict()
+            resource['spec']['ports'][0]['node_port'] = random.randrange(30000, 40000)
+            self.core_v1.create_namespaced_service(self.namespace, resource)
 
     def patch_resource(self, **kwargs):
         self.core_v1.patch_namespaced_service(self.instance_name, self.namespace, self.resource)
@@ -43,7 +50,7 @@ class ServiceClient(KubernetesApi):
         else:
             i = 0
             service_port = list()
-            for protocol in self.protocol:
+            for protocol in [self.protocol]:
                 service_port.append(self._create_service_port(protocol, self.ports[i]))
                 i = i + 1
             return service_port
