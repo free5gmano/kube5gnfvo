@@ -47,12 +47,8 @@ class HorizontalPodAutoscalerClient(KubernetesApi):
             api_version='autoscaling/v1', kind='HorizontalPodAutoscaler')
         horizontal_pod_autoscaler.metadata = self.kubernetes_client.V1ObjectMeta(
             name=self.instance_name)
-        if self.isContainer:
-            scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
-                api_version='apps/v1', kind='Deployment', name=self.instance_name)
-        else:
-            scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
-                api_version='kubevirt.io/v1alpha3', kind='VirtualMachineInstanceReplicaSet', name=self.instance_name)
+        scale_target_ref = self.kubernetes_client.V1CrossVersionObjectReference(
+            api_version='apps/v1', kind='Deployment', name=self.instance_name)
 
         horizontal_pod_autoscaler.spec = self.kubernetes_client.V1HorizontalPodAutoscalerSpec(
             max_replicas=self.max_replicas, min_replicas=self.min_replicas,

@@ -19,7 +19,7 @@ from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.network_policy import NetworkPolicyClient
-from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
+# from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -37,10 +37,7 @@ class CreateService(ProcessVNFInstance):
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
-        if kwargs['vdu_info']['diskFormat'] == 'raw':
-            client = DeploymentClient(**kwargs['vdu_info'])
-        else:
-            client = VirtualMachineInstance(**kwargs['vdu_info'])
+        client = DeploymentClient(**kwargs['vdu_info'])
 
         client.handle_create_or_update()
 

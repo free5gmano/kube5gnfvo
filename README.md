@@ -8,8 +8,6 @@
   - [Multus](#Multus)
   - [OpenvSwitch](#OpenvSwitch)
   - [OVS-CNI](#OVS-CNI)
-  - [KubeVirt](#KubeVirt)
-  - [kubevirt-py](#kubevirt-py)
 - [Quick Start](#quick-start)
   - [Deploy kube5gnfvo](#Database migrate)
   - [Example deployments](#example-deployments)
@@ -76,22 +74,6 @@ EOF
 kubectl apply -f ovs-net-crd.yaml
 ```
 
-### KubeVirt
->Please refer to [KubeVirt Quickstart with Minikube](https://github.com/kubevirt/kubevirt) to deploy KubeVirt.
-##### Or follow the instructions
-```shell=
-cd kube5gnfvo/example/kubevirt/
-kubectl apply -f kubevirt-operator.yaml
-(Please make sure that virt-operator pod in Kubernetes has been Running)
-kubectl apply -f kubevirt-cr.yaml
-```
-
-### kubevirt-py
->Please refer to [KubeVirt Quickstart with Minikube](https://github.com/kubevirt/client-python) to deploy kubevirt-py.
-##### Or follow the instructions
-```shell=
-pip3 install git+https://github.com/yanyan8566/client-python
-```
 
 ## Quick Start
 ### Database migrate
