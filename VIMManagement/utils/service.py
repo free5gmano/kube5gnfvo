@@ -15,7 +15,6 @@ class ServiceClient(KubernetesApi):
         return self.core_v1.read_namespaced_service(self.instance_name, self.namespace)
 
     def create_resource(self, **kwargs):
-        print(self.resource)
         try:
             self.core_v1.create_namespaced_service(self.instance_name, self.resource)
         except:
