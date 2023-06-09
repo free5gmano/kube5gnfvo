@@ -29,6 +29,9 @@ class DeploymentClient(KubernetesApi):
         if 'ports' in kwargs and 'name_of_service' in kwargs:
             self.ports = kwargs['ports']
             self.name_of_service = kwargs['name_of_service']
+        if 'nodeport' in kwargs and 'name_of_nodeport' in kwargs:
+            self.nodeport = kwargs['nodeport']
+            self.name_of_nodeport = kwargs['name_of_nodeport']
         self.path_of_storage = kwargs['path_of_storage'] if 'path_of_storage' in kwargs else None
         self.command = kwargs['command'] if 'command' in kwargs else None
         self.env = kwargs['env'] if 'env' in kwargs else None
@@ -65,7 +68,9 @@ class DeploymentClient(KubernetesApi):
 
     def _get_deployment_spec(self):
         deployment_match_label = {
-            "app": self.name_of_service if self.name_of_service else self.instance_name}
+            "app": self.name_of_service if self.name_of_service else self.instance_name,
+            "nodeport": self.name_of_nodeport if self.name_of_nodeport else self.instance_name,
+            }
         deployment_meta = self.kubernetes_client.V1ObjectMeta(labels=deployment_match_label)
         volume_mounts = list()
         volumes = list()

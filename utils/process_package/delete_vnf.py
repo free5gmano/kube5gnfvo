@@ -47,6 +47,12 @@ class DeleteService(ProcessVNFInstance):
             namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
 
+    def process_nodeport(self, **kwargs):
+        client = NodePortClient(
+            instance_name=kwargs['vdu'].attributes['name_of_nodeport'],
+            namespace=kwargs['vdu'].attributes['namespace'])
+        client.handle_delete()
+
     def process_persistent_volume_claim(self, **kwargs):
         client = PersistentVolumeClaimClient(
             instance_name=self.vnf_instance_name, namespace=kwargs['vdu'].attributes['namespace'])

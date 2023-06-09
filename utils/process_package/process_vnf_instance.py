@@ -113,6 +113,9 @@ class ProcessVNFInstance(BaseProcess):
 
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
                 self.process_service(vdu=vdu)
+            
+            if vdu.attributes['nodeport'] and vdu.attributes['name_of_nodeport']:
+                self.process_nodeport(vdu=vdu)
 
             if vdu.attributes['tenant']:
                 self.process_network_policy(vdu=vdu)

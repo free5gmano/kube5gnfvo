@@ -19,7 +19,7 @@ from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.network_policy import NetworkPolicyClient
-# from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
+from VIMManagement.utils.nodeport import NodePortClient
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -46,7 +46,15 @@ class CreateService(ProcessVNFInstance):
         client = ServiceClient(
             instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
             ports=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
-            service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
+            service_type='ClusterIP')
+        client.handle_create_or_update()
+
+    def process_nodeport(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = NodePortClient(
+            instance_name=vdu.attributes['name_of_nodeport'], namespace=vdu.attributes['namespace'],
+            nodeport=vdu.attributes['nodeport'], virtualport=vdu.attributes['virtualport'], nodeport_protocol=vdu.attributes['nodeport_protocol'],
+            service_type='NodePort')
         client.handle_create_or_update()
 
     def process_network_policy(self, **kwargs):
