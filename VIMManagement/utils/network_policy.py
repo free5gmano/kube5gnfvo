@@ -3,12 +3,11 @@ from VIMManagement.utils.kubernetes_api import KubernetesApi
 class NetworkPolicyClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         self.network_policy = kwargs['network_policy'] if 'network_policy' in kwargs else None
+        self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
         super().__init__(*args, **kwargs)
-
+        if self.apply_cluster:
+            self.core_v1 = self.kubernetes_client.CoreV1Api(api_client=self.config.new_client_from_config(context=self.apply_cluster))
     def read_resource(self, **kwargs):
-        print("------------------")
-        print(self.network_policy, self.namespace)
-        print(self.networking_v1.read_namespaced_network_policy(self.network_policy, self.namespace))
         return self.networking_v1.read_namespaced_network_policy(self.network_policy, self.namespace)
     
     def create_resource(self, **kwargs):

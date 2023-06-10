@@ -149,6 +149,9 @@ class ProcessVNFInstance(BaseProcess):
             if 'num_virtual_cpu' in kwargs and kwargs['num_virtual_cpu']:
                 vdu_info['num_virtual_cpu'] = kwargs['num_virtual_cpu']
 
+            if 'vdu' in kwargs and kwargs['vdu']:
+                vdu_info['vdu'] = kwargs['vdu']
+
             self.process_deployment(vdu_info=vdu_info)
 
     def process_artifacts(self, vdu, vnf_info):
