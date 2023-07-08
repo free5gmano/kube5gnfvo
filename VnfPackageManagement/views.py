@@ -46,7 +46,6 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
 
             The POST method creates a new individual VNF package resource.
         """
-        print('aaa')
         set_request_parameter_to_string(request, 'userDefinedData')
         request.data['_links'] = {'self': request.build_absolute_uri(),
                                   'vnfd': request.build_absolute_uri(),
@@ -135,7 +134,6 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
     def upload_content(self, request, **kwargs):
         instance = self.get_object()
         if request.method == 'PUT':
-            print('000')
             if created != instance.onboardingState:
                 raise APIException(detail='VNF Package onboardingState is not {}'.format(created),
                                    code=status.HTTP_409_CONFLICT)
@@ -144,23 +142,15 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
                 raise APIException(detail='HEAD need to have application/zip value')
 
             vnf_package_path = '{}{}'.format(vnf_package_base_path, instance.id)
-            print('111')
             vnf_package_content_path = decompress_zip(
                 request.data['file'], vnf_package_path + '/package_content/')
-            print('222')
             copy_file(vnf_package_path + "/package_content/", vnf_package_path + "/vnfd/", 'Definitions')
-            print('333')
             process_vnf_instance = PackageVNF(path=vnf_package_content_path)
-            print('444')
             input_value = process_vnf_instance.processing_data()
-            print('555')
 
             serializer = self.get_serializer(instance, data=input_value)
-            print('666')
             serializer.is_valid(raise_exception=True)
-            print('777')
             serializer.save()
-            print('999')
 
             self.kafka_notification.notify(kwargs['pk'], 'VNFPackage({}) had been upload'.format(kwargs['pk']))
             return Response(status=status.HTTP_202_ACCEPTED)

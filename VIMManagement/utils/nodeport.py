@@ -5,8 +5,6 @@ from VIMManagement.utils.kubernetes_api import KubernetesApi
 class NodePortClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         self.service_type = kwargs['service_type'] if 'service_type' in kwargs else None
-
-        # self.virtualport = kwargs['nodeport'] if 'nodeport' in kwargs else None
         self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
         self.target_port = kwargs['target_port'] if 'target_port' in kwargs else None
         self.virtualport = kwargs['virtualport'] if 'virtualport' in kwargs else None

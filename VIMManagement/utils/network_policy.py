@@ -11,7 +11,6 @@ class NetworkPolicyClient(KubernetesApi):
         return self.networking_v1.read_namespaced_network_policy(self.network_policy, self.namespace)
     
     def create_resource(self, **kwargs):
-        print(self.network_policy_v1)
         network_policy_v1 = {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "NetworkPolicy",

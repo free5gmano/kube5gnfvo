@@ -82,7 +82,8 @@ class BaseKubernetes(object):
         # self.core_v1 = {"master_cluster": self.kubernetes_client.CoreV1Api(api_client=config.new_client_from_config(context=MASTER_CLUSTER))}
         # for worker_cluster in WORKER_CLUSTER:
         #     self.core_v1[worker_cluster] = self.kubernetes_client.CoreV1Api(api_client=config.new_client_from_config(context=worker_cluster))
-        
+        # self.configuration = kubernetes.client.Configuration()
+        # self.ApiClient = kubernetes_client.ApiClient()
         self.app_v1 = self.kubernetes_client.AppsV1Api()
         self.api_crd = self.kubernetes_client.CustomObjectsApi()
         self.ApiException = ApiException
