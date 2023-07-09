@@ -20,6 +20,7 @@ from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimCli
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.network_policy import NetworkPolicyClient
 from VIMManagement.utils.nodeport import NodePortClient
+from VIMManagement.utils.docker import DockerClient
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -39,7 +40,6 @@ class CreateService(ProcessVNFInstance):
 
     def process_deployment(self, **kwargs):
         client = DeploymentClient(**kwargs['vdu_info'])
-
         client.handle_create_or_update()
 
     def process_service(self, **kwargs):
@@ -56,6 +56,13 @@ class CreateService(ProcessVNFInstance):
             instance_name=vdu.attributes['name_of_nodeport'], namespace=vdu.attributes['namespace'],
             nodeport=vdu.attributes['nodeport'], virtualport=vdu.attributes['virtualport'], nodeport_protocol=vdu.attributes['nodeport_protocol'],
             service_type='NodePort', apply_cluster=vdu.attributes['apply_cluster'])
+        client.handle_create_or_update()
+
+    def process_docker(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = DockerClient(
+            nodeport=vdu.attributes['nodeport'], virtualport=vdu.attributes['virtualport'], nodeport_protocol=vdu.attributes['nodeport_protocol'],
+            apply_cluster=vdu.attributes['apply_cluster'], image=vdu.artifacts['sw_image']['file'])
         client.handle_create_or_update()
 
     def process_network_policy(self, **kwargs):
@@ -94,6 +101,7 @@ class CreateService(ProcessVNFInstance):
         else:
             raise APIException(detail='storage type only local or nfs',
                                    code=status.HTTP_409_CONFLICT)
+ 
     def process_namespace(self, **kwargs):
         vdu = kwargs['vdu']
         namespace = vdu.attributes['namespace']

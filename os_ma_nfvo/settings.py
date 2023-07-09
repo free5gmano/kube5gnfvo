@@ -34,7 +34,7 @@ DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
 DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
 DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
 MASTER_CLUSTER = "Cloud-218"
-WORKER_CLUSTER = ["MEC-51", "MEC-57", "MEC-58"]
+WORKER_CLUSTER = {"MEC-51": "10.20.1.51", "MEC-57": "10.20.1.57", "MEC-58": "10.20.1.58"}
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/

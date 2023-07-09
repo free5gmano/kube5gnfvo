@@ -23,9 +23,9 @@ class VDUTemplate(EntityTemplate):
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
-                      NAME_OF_SERVICE, TENANT, NAME_OF_NODEPORT, PROTOCOL, NODEPORT, NODEPORT_PROTOCOL, VIRTUALPORT, APPLY_CLUSTER) = \
+                      NAME_OF_SERVICE, TENANT, NAME_OF_NODEPORT, PROTOCOL, NODEPORT, NODEPORT_PROTOCOL, VIRTUALPORT, APPLY_CLUSTER, STATEFUL_APPLICATION) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
-         'name_of_service', 'tenant', 'name_of_nodeport', 'protocol', 'nodeport', 'nodeport_protocol', "virtualport", 'apply_cluster')
+         'name_of_service', 'tenant', 'name_of_nodeport', 'protocol', 'nodeport', 'nodeport_protocol', "virtualport", 'apply_cluster', 'stateful_application')
     VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
     VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS, NODEPORT, VIRTUALPORT, NODEPORT_PROTOCOL) = ('command', 'env', 'ports', 'nodeport', "virtualport", 'nodeport_protocol')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
