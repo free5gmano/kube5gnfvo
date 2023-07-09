@@ -20,9 +20,12 @@ class ConfigMapClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
         self.config_file_name = kwargs['config_file_name'] if 'config_file_name' in kwargs else None
         self.config_file_content = kwargs['config_file_content'] if 'config_file_content' in kwargs else None
+        self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
         kwargs['instance_name'] = self.config_file_name if "." not in self.config_file_name else \
             self.config_file_name.split(".")[0]
         super().__init__(*args, **kwargs)
+        if self.apply_cluster:
+            self.core_v1 = self.kubernetes_client.CoreV1Api(api_client=self.config.new_client_from_config(context=self.apply_cluster))
 
     def read_resource(self, **kwargs):
         return self.core_v1.read_namespaced_config_map(self.instance_name, self.namespace)

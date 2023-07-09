@@ -41,8 +41,12 @@ class DeploymentClient(KubernetesApi):
         self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
         self.labels = kwargs['labels'] if 'labels' in kwargs and isinstance(kwargs['labels'], dict) else None
         self.sriov_type = 'intel.com/intel_sriov_netdevice'
-
+        self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
         super().__init__(*args, **kwargs)
+        if self.apply_cluster:
+            api_client=self.config.new_client_from_config(context=self.apply_cluster)
+            self.app_v1 = self.kubernetes_client.AppsV1Api(api_client)
+        
 
     def read_resource(self, **kwargs):
         return self.app_v1.read_namespaced_deployment(self.instance_name, self.namespace)

@@ -22,7 +22,6 @@ class BaseProcess(BasePackage):
     def __init__(self, package_id):
         self.package_id = package_id
         super().__init__(self.get_root_path())
-        # self.etcd_client = EtcdClient()
 
     @abstractmethod
     def get_root_path(self):

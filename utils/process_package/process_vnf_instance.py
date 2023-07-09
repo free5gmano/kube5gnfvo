@@ -108,6 +108,11 @@ class ProcessVNFInstance(BaseProcess):
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
+
+            if vdu.attributes['stateful_application'] == 1 :
+                self.process_docker(vdu=vdu)
+                return
+
             self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 
@@ -148,6 +153,9 @@ class ProcessVNFInstance(BaseProcess):
 
             if 'num_virtual_cpu' in kwargs and kwargs['num_virtual_cpu']:
                 vdu_info['num_virtual_cpu'] = kwargs['num_virtual_cpu']
+
+            if 'vdu' in kwargs and kwargs['vdu']:
+                vdu_info['vdu'] = kwargs['vdu']
 
             self.process_deployment(vdu_info=vdu_info)
 

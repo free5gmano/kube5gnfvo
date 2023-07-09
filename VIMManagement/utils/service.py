@@ -9,7 +9,10 @@ class ServiceClient(KubernetesApi):
         self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
         self.target_port = kwargs['target_port'] if 'target_port' in kwargs else None
         self.node_port = kwargs['node_port'] if 'node_port' in kwargs else None
+        self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
         super().__init__(*args, **kwargs)
+        if self.apply_cluster:
+            self.core_v1 = self.kubernetes_client.CoreV1Api(api_client=self.config.new_client_from_config(context=self.apply_cluster))
 
     def read_resource(self, **kwargs):
         return self.core_v1.read_namespaced_service(self.instance_name, self.namespace)
