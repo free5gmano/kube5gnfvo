@@ -1,0 +1,88 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+topology_template:
+  node_templates:
+    VNF1:
+      type: tosca.nodes.nfv.VNF
+      properties:
+        descriptor_id: 467f45fd-1dd2-11b2-8001-080027b24nrf
+        descriptor_version: 1.0
+        provider: imac
+        product_name: nrf
+        software_version: latest
+
+    VDU1:
+      type: tosca.nodes.nfv.Vdu.Compute
+      properties:
+        sw_image_data:
+          name: free5gc-control-plane
+          provider: free5gmano
+          version: stage3.2.1-amd64
+          diskFormat: raw
+      capabilities:
+        virtual_compute:
+          properties:
+            virtual_memory:
+              virtual_mem_size: 512Mi
+            virtual_cpu:
+              num_virtual_cpu: 250m
+      artifacts:
+        sw_image:
+          type: tosca.artifacts.nfv.SwImage
+          file: free5gmano/free5gc-control-plane:stage3.2.1-amd64
+        nrf:
+          type: tosca.artifacts.File
+          file: Files/Artifacts/nrfcfg.conf
+          deploy_path: /free5gc/config/nrfcfg.yaml
+      attributes:
+        namespace: default
+        name_of_service: free5gc-nrf-svc
+        ports: [29510]
+        apply_cluster: istio-1
+        protocol: [TCP]
+        stateful_application: 0
+        replicas: 1
+        command: [sh, -c, sleep 10s && ./bin/nrf]
+
+
+    CP1:
+      type: tosca.nodes.nfv.Cpd
+      properties:
+        layer_protocol: ipv4
+      requirements:
+        virtual_binding: VDU1
+        virtual_link: VL1
+
+    VL1:
+      type: tosca.nodes.nfv.VnfVirtualLink
+      properties:
+        network_name: management
+        vl_profile:
+          virtual_link_protocol_data:
+            l3_protocol_data:
+              dhcp_enabled: False
+
+    SERVICE_MESH1:
+      type: tosca.nodes.nfv.SM
+      properties:
+        circuit_breaking:
+          maxConnections: 2
+          maxRequestsPerConnection: 1  
+
+    SERVICE_MESH2:
+      type: tosca.nodes.nfv.SM
+      properties:
+        retry_policy:
+          attempts: 3
+          perTryTimeout: 10
+          retryOn: "5xx"
+          
+    SERVICE_MESH3:
+      type: tosca.nodes.nfv.SM
+      properties: 
+        canary:
+          hostname: ["test", "test"]
+          subset: ["v1", "v2"]
+          weight: [100, 0]
+            
+
