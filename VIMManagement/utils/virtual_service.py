@@ -29,9 +29,6 @@ class VirtualServiceClient(KubernetesApi):
         super().__init__(*args, **kwargs)
         self.name_of_service = kwargs['name_of_service']
         self.specific_info = kwargs['specific_info']
-        # self.attempts = kwargs['attempts']
-        # self.perTryTimeout = "{}s".format(kwargs['perTryTimeout'])
-        # self.retryOn = kwargs['retryOn']
         self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
         if self.apply_cluster:
             self.api_crd = self.kubernetes_client.CustomObjectsApi(api_client=self.config.new_client_from_config(context=self.apply_cluster))
@@ -51,21 +48,6 @@ class VirtualServiceClient(KubernetesApi):
                                                      self.name_of_service, body=self.delete_options)
     def parser_spec_resource(self, **kwargs):
         spec_info = {"hosts": [self.name_of_service if self.name_of_service else self.instance_name]}
-        if "canary" in self.specific_info:
-            destination = list()
-            specific = self.specific_info['canary']
-            # for i in range(len(specific['hostname'])):
-            for host, subset, weight in zip(specific['hostname'], specific['subset'], specific['weight']):
-                destination_value = {
-                    "destination": {
-                        "host": host, 
-                        "subset": subset,
-                    },
-                    "weight": weight
-                }
-                destination.append(destination_value)
-            
-            spec_info["http"] = [{"route": destination}]
         if "retry_policy" in self.specific_info:
             specific = self.specific_info['retry_policy']
             spec_info["http"] = [{
