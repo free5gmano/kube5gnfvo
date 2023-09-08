@@ -102,6 +102,7 @@ class ProcessVNFInstance(BaseProcess):
         for vnf in node_template.integration_vnf:
             vdu = node_template.integration_vnf[vnf]
             net_list = vdu['net']
+            service_mesh = vdu['service_mesh']
             vdu = vdu['info']
             vdu_info = dict()
             vdu_info['instance_name'] = self.vnf_instance_name
@@ -141,6 +142,14 @@ class ProcessVNFInstance(BaseProcess):
                             self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties, isContainer=False)
                         break
 
+            if service_mesh:
+                if 'circuit_breaking' in service_mesh:
+                    self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                # if 'retry_policy' in service_mesh:
+                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                # if 'canary' in service_mesh:
+                #     self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
 
@@ -171,8 +180,8 @@ class ProcessVNFInstance(BaseProcess):
                 else:
                     artifacts_name = (path[0].split('/')[path[0].split('/').__len__()-1]+'-'+path[1].split(".")[0]).lower()
 
-                self.process_config_map(artifacts_path=self.root_path + artifact['file'],
-                                        artifacts_name=artifacts_name.lower(), namespace=vdu.attributes['namespace'])
+                self.process_config_map(artifacts_path=self.root_path + artifact['file'],  artifacts_name=artifacts_name.lower(), 
+                                        namespace=vdu.attributes['namespace'], apply_cluster=vdu.attributes['apply_cluster'])
                 deploy_path.append(artifact['deploy_path'])
             else:
                 vnf_info['image'] = artifact['file']
@@ -206,4 +215,10 @@ class ProcessVNFInstance(BaseProcess):
         pass
     @abstractmethod
     def process_horizontal_pod_autoscaler(self, **kwargs):
+        pass
+    @abstractmethod
+    def process_virtual_service(self, **kwargs):
+        pass
+    @abstractmethod
+    def process_destination_rule(self, **kwargs):
         pass

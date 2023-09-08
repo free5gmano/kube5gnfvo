@@ -21,7 +21,6 @@ class DockerClient():
         pass
 
     def create_resource(self, **kwargs):
-        print(self.nodeport[0])
         self.client.containers.run(self.image, ports={str(self.nodeport[0])+'/'+self.nodeport_protocol[0]: self.virtualport[0]})
 
     def patch_resource(self, **kwargs):

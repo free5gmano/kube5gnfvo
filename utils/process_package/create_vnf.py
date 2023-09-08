@@ -21,6 +21,8 @@ from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.network_policy import NetworkPolicyClient
 from VIMManagement.utils.nodeport import NodePortClient
 from VIMManagement.utils.docker import DockerClient
+from VIMManagement.utils.virtual_service import VirtualServiceClient
+from VIMManagement.utils.destination_rule import DestinationRuleClient
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -31,11 +33,11 @@ class CreateService(ProcessVNFInstance):
         super().__init__(package_id, vnf_instance_name)
 
     def process_config_map(self, **kwargs):
-        vdu = kwargs['vdu']
+        # vdu = kwargs['vdu']
         with open(kwargs['artifacts_path'], 'r') as artifacts_file_content:
             client = ConfigMapClient(
                 instance_name=self.vnf_instance_name, namespace=kwargs['namespace'],
-                config_file_name=kwargs['artifacts_name'], config_file_content=artifacts_file_content.read(), apply_cluster=vdu.attributes['apply_cluster'])
+                config_file_name=kwargs['artifacts_name'], config_file_content=artifacts_file_content.read(), apply_cluster=kwargs['apply_cluster'])
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
@@ -121,4 +123,18 @@ class CreateService(ProcessVNFInstance):
             min_replicas=vdu.attributes['replicas'],
             target_cpu_utilization_percentage=scale['target_cpu_utilization_percentage'],
             isContainer=kwargs['isContainer'])
+        client.handle_create_or_update()
+
+    def process_virtual_service(self, **kwargs):
+        vdu_info = kwargs['vdu_info']
+        service_mesh_info = kwargs['service_mesh_info']
+        client = VirtualServiceClient(name_of_service=vdu_info['name_of_service'], namespace=vdu_info['namespace'],
+                                      apply_cluster=vdu_info['apply_cluster'], specific_info=service_mesh_info)
+        client.handle_create_or_update()
+
+    def process_destination_rule(self, **kwargs):
+        vdu_info = kwargs['vdu_info']
+        service_mesh_info = kwargs['service_mesh_info']
+        client = DestinationRuleClient(name_of_service=vdu_info['name_of_service'], namespace=vdu_info['namespace'],
+                                       apply_cluster=vdu_info['apply_cluster'], specific_info=service_mesh_info)
         client.handle_create_or_update()

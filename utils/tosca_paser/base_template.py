@@ -16,10 +16,10 @@ from abc import abstractmethod
 
 
 class BaseTemplate(object):
-    TOSCA_TYPE = (TOSCA_VNF, TOSCA_VDU, TOSCA_CP, TOSCA_NS, TOSCA_SCALING, TOSCA_VL, TOSCA_FP, TOSCA_VNFFG) = \
+    TOSCA_TYPE = (TOSCA_VNF, TOSCA_VDU, TOSCA_CP, TOSCA_NS, TOSCA_SCALING, TOSCA_VL, TOSCA_FP, TOSCA_VNFFG, TOSCA_SERVICE_MESH) = \
         ('tosca.nodes.nfv.VNF', 'tosca.nodes.nfv.Vdu.Compute', 'tosca.nodes.nfv.Cpd',
          'tosca.nodes.nfv.NS', 'tosca.policies.Scaling', 'tosca.nodes.nfv.VnfVirtualLink',
-         'tosca.nodes.nfv.FP', 'tosca.groups.nfv.VNFFG')
+         'tosca.nodes.nfv.FP', 'tosca.groups.nfv.VNFFG', 'tosca.nodes.nfv.SM')
     ATTRIBUTE = (TYPE, PROPERTIES, CAPABILITIES, REQUIREMENTS, ATTRIBUTES, ARTIFACTS, TARGETS) = \
         ('type', 'properties', 'capabilities', 'requirements', 'attributes', 'artifacts', 'targets')
 

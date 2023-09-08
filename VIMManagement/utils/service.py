@@ -19,7 +19,7 @@ class ServiceClient(KubernetesApi):
 
     def create_resource(self, **kwargs):
         try:
-            self.core_v1.create_namespaced_service(self.instance_name, self.resource)
+            self.core_v1.create_namespaced_service(self.namespace, self.resource)
         except:
             resource = self.resource.to_dict()
             resource['spec']['ports'][0]['node_port'] = random.randrange(30000, 40000)
