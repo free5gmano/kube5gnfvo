@@ -145,11 +145,8 @@ class ProcessVNFInstance(BaseProcess):
             if service_mesh:
                 if 'circuit_breaking' in service_mesh:
                     self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
-                # if 'retry_policy' in service_mesh:
-                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
-                # if 'canary' in service_mesh:
-                #     self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
-                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                if 'retry_policy' in service_mesh:
+                    self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
 
