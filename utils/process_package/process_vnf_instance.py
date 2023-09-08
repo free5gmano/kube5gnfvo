@@ -33,7 +33,7 @@ class ProcessVNFInstance(BaseProcess):
 
     # TODO
     def _process_network(self, net_list, vdu_info, isTemplate=False, max_instances=None):
-        self.etcd_client.set_deploy_name(instance_name=self.vnf_instance_name, pod_name=None)
+        # self.etcd_client.set_deploy_name(instance_name=self.vnf_instance_name, pod_name=None)
         ip_address = list()
         network_name_list = list()
         ext_cp_info = list()
@@ -50,14 +50,8 @@ class ProcessVNFInstance(BaseProcess):
                     cidr = vl_info.properties['cidr']
                     ip_address.append(cidr)
                     ip_address_mask = cidr.split('/')
-                    self.etcd_client.check_valid_static_ip_address(ip_address_mask[0], ip_address_mask[1])
                 elif vl_info.properties['dhcp_enabled']:
                     dhcp_enabled = True
-                    if max_instances:
-                        ip_address = [self.etcd_client.create_ip_pool() for _ in range(max_instances)]
-                    else:
-                        ip_address = [self.etcd_client.create_ip_pool() for _ in
-                                      range(vdu_info.attributes['replicas'])]
 
                 if isTemplate:
                     vnf_ext_cp_info_info = dict()
@@ -108,17 +102,29 @@ class ProcessVNFInstance(BaseProcess):
         for vnf in node_template.integration_vnf:
             vdu = node_template.integration_vnf[vnf]
             net_list = vdu['net']
+            service_mesh = vdu['service_mesh']
             vdu = vdu['info']
             vdu_info = dict()
             vdu_info['instance_name'] = self.vnf_instance_name
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
+
+            if vdu.attributes['stateful_application'] == 1 :
+                self.process_docker(vdu=vdu)
+                return
+
             self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
                 self.process_service(vdu=vdu)
+            
+            if vdu.attributes['nodeport'] and vdu.attributes['name_of_nodeport']:
+                self.process_nodeport(vdu=vdu)
+
+            if vdu.attributes['tenant']:
+                self.process_network_policy(vdu=vdu)
 
             if vdu.requirements and vdu.requirements['size_of_storage'] and vdu.requirements['path_of_storage']:
                 vdu_info.update(vdu.requirements)
@@ -136,6 +142,14 @@ class ProcessVNFInstance(BaseProcess):
                             self.process_horizontal_pod_autoscaler(vdu=vdu, scale=scale.properties, isContainer=False)
                         break
 
+            if service_mesh:
+                if 'circuit_breaking' in service_mesh:
+                    self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                # if 'retry_policy' in service_mesh:
+                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                # if 'canary' in service_mesh:
+                #     self.process_destination_rule(vdu_info=vdu_info, service_mesh_info=service_mesh)
+                #     self.process_virtual_service(vdu_info=vdu_info, service_mesh_info=service_mesh)
             rate, network_name_list = self._process_network(net_list, vdu, max_instances=max_instances)
             vdu_info['network_name'] = network_name_list
 
@@ -148,6 +162,9 @@ class ProcessVNFInstance(BaseProcess):
 
             if 'num_virtual_cpu' in kwargs and kwargs['num_virtual_cpu']:
                 vdu_info['num_virtual_cpu'] = kwargs['num_virtual_cpu']
+
+            if 'vdu' in kwargs and kwargs['vdu']:
+                vdu_info['vdu'] = kwargs['vdu']
 
             self.process_deployment(vdu_info=vdu_info)
 
@@ -163,8 +180,8 @@ class ProcessVNFInstance(BaseProcess):
                 else:
                     artifacts_name = (path[0].split('/')[path[0].split('/').__len__()-1]+'-'+path[1].split(".")[0]).lower()
 
-                self.process_config_map(artifacts_path=self.root_path + artifact['file'],
-                                        artifacts_name=artifacts_name.lower(), namespace=vdu.attributes['namespace'])
+                self.process_config_map(artifacts_path=self.root_path + artifact['file'],  artifacts_name=artifacts_name.lower(), 
+                                        namespace=vdu.attributes['namespace'], apply_cluster=vdu.attributes['apply_cluster'])
                 deploy_path.append(artifact['deploy_path'])
             else:
                 vnf_info['image'] = artifact['file']
@@ -198,4 +215,10 @@ class ProcessVNFInstance(BaseProcess):
         pass
     @abstractmethod
     def process_horizontal_pod_autoscaler(self, **kwargs):
+        pass
+    @abstractmethod
+    def process_virtual_service(self, **kwargs):
+        pass
+    @abstractmethod
+    def process_destination_rule(self, **kwargs):
         pass

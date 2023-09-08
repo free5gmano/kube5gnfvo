@@ -18,12 +18,10 @@ from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscale
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
-from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
+# from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 from utils.file_manipulation import remove_file
 from os_ma_nfvo import settings
-
-
 
 class DeleteService(ProcessVNFInstance):
     def __init__(self, package_id, vnf_instance_name):
@@ -37,16 +35,19 @@ class DeleteService(ProcessVNFInstance):
 
     def process_deployment(self, **kwargs):
         data = {'instance_name': self.vnf_instance_name, 'namespace': kwargs['vdu_info']['namespace']}
-        if kwargs['vdu_info']['diskFormat'] == 'raw':
-            client = DeploymentClient(**data)
-        else:
-            client = VirtualMachineInstance(**data)
+        client = DeploymentClient(**data)
 
         client.handle_delete()
 
     def process_service(self, **kwargs):
         client = ServiceClient(
             instance_name=kwargs['vdu'].attributes['name_of_service'],
+            namespace=kwargs['vdu'].attributes['namespace'])
+        client.handle_delete()
+
+    def process_nodeport(self, **kwargs):
+        client = NodePortClient(
+            instance_name=kwargs['vdu'].attributes['name_of_nodeport'],
             namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
 
