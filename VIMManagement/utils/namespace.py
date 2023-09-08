@@ -3,7 +3,13 @@ from VIMManagement.utils.kubernetes_api import KubernetesApi
 
 class NameSpaceClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
+        self.apply_cluster = kwargs['apply_cluster'] if 'apply_cluster' in kwargs else None
+
+        
+
         super().__init__(*args, **kwargs)
+        if self.apply_cluster:
+            self.core_v1 = self.kubernetes_client.CoreV1Api(api_client=self.config.new_client_from_config(context=self.apply_cluster))
 
     def read_resource(self, **kwargs):
         return self.core_v1.read_namespace(self.namespace)

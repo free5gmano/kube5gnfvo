@@ -18,7 +18,8 @@ import os
 import threading
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
-import kubevirt
+from pick import pick
+from os_ma_nfvo.settings import MASTER_CLUSTER, WORKER_CLUSTER
 
 lock = threading.Lock()
 
@@ -72,12 +73,17 @@ class VirtualMachineReplicaSetStatus(dict, metaclass=Singleton):
 class BaseKubernetes(object):
     def __init__(self, *args, **kwargs):
         self.kubernetes_client = client
-        # self.kubeconfig = os.path.expanduser("~/.kube/config")
-        self.kubeconfig = os.path.expanduser("/root/config")
-        config.load_kube_config(config_file=self.kubeconfig)
-        kube_config_loader = config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)
-        kube_config_loader.load_and_set(kubevirt.configuration)
+        self.kubeconfig = os.path.expanduser("~/.kube/config")
+        self.config = config
+        self.config.load_kube_config(config_file=self.kubeconfig)
+        kube_config_loader = self.config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)
+        
         self.core_v1 = self.kubernetes_client.CoreV1Api()
+        # self.core_v1 = {"master_cluster": self.kubernetes_client.CoreV1Api(api_client=config.new_client_from_config(context=MASTER_CLUSTER))}
+        # for worker_cluster in WORKER_CLUSTER:
+        #     self.core_v1[worker_cluster] = self.kubernetes_client.CoreV1Api(api_client=config.new_client_from_config(context=worker_cluster))
+        # self.configuration = kubernetes.client.Configuration()
+        # self.ApiClient = kubernetes_client.ApiClient()
         self.app_v1 = self.kubernetes_client.AppsV1Api()
         self.api_crd = self.kubernetes_client.CustomObjectsApi()
         self.ApiException = ApiException
@@ -86,9 +92,9 @@ class BaseKubernetes(object):
         self.lock = threading.Lock()
         self.rbac_authorization_v1 = self.kubernetes_client.RbacAuthorizationV1Api()
         self.auto_scaling_v1 = self.kubernetes_client.AutoscalingV1Api()
-        self.kubevirt_client = kubevirt
-        self.kubevirt_api = kubevirt.DefaultApi()
         self.deployment_status = DeploymentStatus()
         self.pod_status = PodStatus()
         self.virtual_machine_status = VirtualMachineStatus()
         self.virtual_machine_replica_set = VirtualMachineReplicaSetStatus()
+        self.networking_v1 = self.kubernetes_client.NetworkingV1Api()
+        self.network_policy_v1 = self.kubernetes_client.V1NetworkPolicy()

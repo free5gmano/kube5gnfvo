@@ -20,6 +20,7 @@ from utils.tosca_paser.ns_template import NSTemplate
 from utils.tosca_paser.vdu_template import VDUTemplate
 from utils.tosca_paser.vl_template import VLTemplate
 from utils.tosca_paser.vnf_template import VNFTemplate
+from utils.tosca_paser.service_mesh_template import ServiceMeshTemplate
 
 
 class NodeTemplate(BaseTemplate):
@@ -31,6 +32,7 @@ class NodeTemplate(BaseTemplate):
         self.cp = list()
         self.ns = list()
         self.fp = list()
+        self.sm = list()
         super().__init__(template)
         self._validate_vl()
         self.integration_vnf = self._Integration_vnf()
@@ -48,6 +50,8 @@ class NodeTemplate(BaseTemplate):
             self.ns.append(NSTemplate(template, name))
         elif self.TOSCA_FP == template.get(self.TYPE):
             self.fp.append(FPTemplate(template, name))
+        elif self.TOSCA_SERVICE_MESH == template.get(self.TYPE):
+            self.sm.append(ServiceMeshTemplate(template, name))
 
     def _validate_vl(self):
         network_attachment = NetworkAttachment()
@@ -68,11 +72,14 @@ class NodeTemplate(BaseTemplate):
                         vnf[vdu_info.name] = dict()
                         vnf[vdu_info.name]['info'] = vdu_info
                         vnf[vdu_info.name]['net'] = list()
-
+                        vnf[vdu_info.name]['service_mesh'] = dict()
                     for vl_info in vl:
                         if cp_info.requirements['virtual_link'] == vl_info.name:
                             integration_net = dict()
                             integration_net[vl_info] = cp_info
                             vnf[vdu_info.name]['net'].append(integration_net)
                             vl.remove(vl_info)
+        for sm_info in self.sm:
+            for vdu_info in self.vdu:
+                vnf[vdu_info.name]['service_mesh'][sm_info.SERVICE_MESH_MODE] = sm_info.properties
         return vnf

@@ -18,7 +18,11 @@ from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscale
 from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
-from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
+from VIMManagement.utils.network_policy import NetworkPolicyClient
+from VIMManagement.utils.nodeport import NodePortClient
+from VIMManagement.utils.docker import DockerClient
+from VIMManagement.utils.virtual_service import VirtualServiceClient
+from VIMManagement.utils.destination_rule import DestinationRuleClient
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
@@ -29,18 +33,15 @@ class CreateService(ProcessVNFInstance):
         super().__init__(package_id, vnf_instance_name)
 
     def process_config_map(self, **kwargs):
+        # vdu = kwargs['vdu']
         with open(kwargs['artifacts_path'], 'r') as artifacts_file_content:
             client = ConfigMapClient(
                 instance_name=self.vnf_instance_name, namespace=kwargs['namespace'],
-                config_file_name=kwargs['artifacts_name'], config_file_content=artifacts_file_content.read())
+                config_file_name=kwargs['artifacts_name'], config_file_content=artifacts_file_content.read(), apply_cluster=kwargs['apply_cluster'])
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
-        if kwargs['vdu_info']['diskFormat'] == 'raw':
-            client = DeploymentClient(**kwargs['vdu_info'])
-        else:
-            client = VirtualMachineInstance(**kwargs['vdu_info'])
-
+        client = DeploymentClient(**kwargs['vdu_info'])
         client.handle_create_or_update()
 
     def process_service(self, **kwargs):
@@ -48,14 +49,36 @@ class CreateService(ProcessVNFInstance):
         client = ServiceClient(
             instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
             ports=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
-            service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
+            service_type='ClusterIP', apply_cluster=vdu.attributes['apply_cluster'])
+        client.handle_create_or_update()
+
+    def process_nodeport(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = NodePortClient(
+            instance_name=vdu.attributes['name_of_nodeport'], namespace=vdu.attributes['namespace'],
+            nodeport=vdu.attributes['nodeport'], virtualport=vdu.attributes['virtualport'], nodeport_protocol=vdu.attributes['nodeport_protocol'],
+            service_type='NodePort', apply_cluster=vdu.attributes['apply_cluster'])
+        client.handle_create_or_update()
+
+    def process_docker(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = DockerClient(
+            nodeport=vdu.attributes['nodeport'], virtualport=vdu.attributes['virtualport'], nodeport_protocol=vdu.attributes['nodeport_protocol'],
+            apply_cluster=vdu.attributes['apply_cluster'], image=vdu.artifacts['sw_image']['file'])
+        client.handle_create_or_update()
+
+    def process_network_policy(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = NetworkPolicyClient(
+            instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
+            network_policy=vdu.attributes['tenant'], apply_cluster=vdu.attributes['apply_cluster'])
         client.handle_create_or_update()
 
     def process_persistent_volume_claim(self, **kwargs):
         vdu = kwargs['vdu']
         client = PersistentVolumeClaimClient(
             instance_name=self.vnf_instance_name, namespace=vdu.attributes['namespace'],
-            storage_size=vdu.requirements['size_of_storage'])
+            storage_size=vdu.requirements['size_of_storage'], apply_cluster=vdu.attributes['apply_cluster'])
         client.handle_create_or_update()
 
     def process_persistent_volume(self, **kwargs):
@@ -65,26 +88,30 @@ class CreateService(ProcessVNFInstance):
                                         storage_size=vdu.requirements['size_of_storage'],
                                         storage_type=vdu.requirements['type_of_storage'],
                                         nfs_server=vdu.requirements['server_of_storage'],
-                                        nfs_path=vdu.requirements['path_of_storage'])
+                                        nfs_path=vdu.requirements['path_of_storage'],
+                                        apply_cluster=vdu.attributes['apply_cluster'])
             client.handle_create_or_update()
             mount_dir(nfs_server=vdu.requirements['server_of_storage'],nfs_path=vdu.requirements['path_of_storage'])
             create_dir("{}{}".format(settings.NFS_PATH, self.vnf_instance_name))
         elif vdu.requirements['type_of_storage'] == 'volume' or vdu.requirements['type_of_storage'] == 'local':
             client = PersistentVolumeClient(instance_name=self.vnf_instance_name,
                                         storage_size=vdu.requirements['size_of_storage'],
-                                        storage_type=vdu.requirements['type_of_storage'])
+                                        storage_type=vdu.requirements['type_of_storage'],
+                                        apply_cluster=vdu.attributes['apply_cluster'])
             client.handle_create_or_update()
             create_dir("{}{}".format(settings.VOLUME_PATH, self.vnf_instance_name))
         else:
             raise APIException(detail='storage type only local or nfs',
                                    code=status.HTTP_409_CONFLICT)
+ 
     def process_namespace(self, **kwargs):
         vdu = kwargs['vdu']
         namespace = vdu.attributes['namespace']
+
         from VIMManagement.utils.namespace import NameSpaceClient
-        client = NameSpaceClient(namespace=namespace)
+        client = NameSpaceClient(namespace=namespace, apply_cluster=vdu.attributes['apply_cluster'])
         client.handle_create_or_update()
-        if 'default' not in namespace:
+        if 'default' not in namespace and not vdu.attributes['tenant']:
             cmd = self._run_ovs_cni_crd(namespace=namespace)
 
     def process_horizontal_pod_autoscaler(self, **kwargs):
@@ -96,4 +123,18 @@ class CreateService(ProcessVNFInstance):
             min_replicas=vdu.attributes['replicas'],
             target_cpu_utilization_percentage=scale['target_cpu_utilization_percentage'],
             isContainer=kwargs['isContainer'])
+        client.handle_create_or_update()
+
+    def process_virtual_service(self, **kwargs):
+        vdu_info = kwargs['vdu_info']
+        service_mesh_info = kwargs['service_mesh_info']
+        client = VirtualServiceClient(name_of_service=vdu_info['name_of_service'], namespace=vdu_info['namespace'],
+                                      apply_cluster=vdu_info['apply_cluster'], specific_info=service_mesh_info)
+        client.handle_create_or_update()
+
+    def process_destination_rule(self, **kwargs):
+        vdu_info = kwargs['vdu_info']
+        service_mesh_info = kwargs['service_mesh_info']
+        client = DestinationRuleClient(name_of_service=vdu_info['name_of_service'], namespace=vdu_info['namespace'],
+                                       apply_cluster=vdu_info['apply_cluster'], specific_info=service_mesh_info)
         client.handle_create_or_update()

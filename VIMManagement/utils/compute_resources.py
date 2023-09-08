@@ -50,10 +50,6 @@ class ComputeResource(BaseKubernetes):
             target=partial(self._get_node_event, _queue=_queue),
             daemon=True
         ).start()
-        threading.Thread(
-            target=partial(self._collect_resource),
-            daemon=True
-        ).start()
 
     def _create_watcher(self, _queue, stream):
         def watcher():
@@ -113,42 +109,3 @@ class ComputeResource(BaseKubernetes):
                         else:
                             result[key] += self.quantity(limits['memory']).to('Mi').magnitude
 
-    def _collect_resource(self):
-        while True:
-            for node_info in self.node_list:
-                for resource in self.resource_result:
-                    if resource['hostname'] == node_info['object']['metadata']['name']:
-                        self._calculation_resource(node_info, resource)
-            time.sleep(3)
-
-    def _calculation_resource(self, node_info, result):
-        node_allocatable = node_info['object']['status']['allocatable']
-        result['memory_usage'] = round(self.quantity((self.memory_total - self.memory_free)).to('Mi').magnitude, 2)
-        result['total_cpu'] = \
-            self.quantity(int(node_allocatable["cpu"]), 'cpu').to('m').magnitude
-        result['total_memory'] = \
-            round(self.quantity(node_allocatable["memory"]).to('Mi').magnitude, 2)
-        for address in node_info['object']['status']['addresses']:
-            if address['type'] == 'InternalIP':
-                older_idle, older_total = self._get_resource('{}:9100/metrics'.format(address['address']))
-                time.sleep(1)
-                newer_idle, newer_total = self._get_resource('{}:9100/metrics'.format(address['address']))
-                cpu_utilization = (((newer_total - newer_idle) - (older_total - older_idle)) / (
-                        newer_total - older_total))
-                result['cpu_usage'] = result['total_cpu'] * round(cpu_utilization, 2)
-
-    def _get_resource(self, uri):
-        metrics_data = self.request.get(uri).text.splitlines()
-        cpu_idle = float()
-        cpu_total = float()
-        for data in metrics_data:
-            if '#' not in data:
-                if 'node_cpu_seconds_total' in data:
-                    cpu_total += float(data.split(' ')[1].strip())
-                    if 'idle' in data:
-                        cpu_idle += float(data.split(' ')[1].strip())
-                elif 'node_memory_MemFree_bytes' in data:
-                    self.memory_free = float(data.split('node_memory_MemFree_bytes')[1].strip())
-                elif 'node_memory_MemTotal_bytes' in data:
-                    self.memory_total = float(data.split('node_memory_MemTotal_bytes')[1].strip())
-        return cpu_idle, cpu_total
