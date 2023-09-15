@@ -78,11 +78,11 @@ kubectl apply -f ovs-net-crd.yaml
 
 
 ### ISTIO
->If you wish to learn more details, please refer to the following [ISTIO]([https://github.com/istio/istio]) or you can follow the steps below to perform a simple test and installation.
+>If you wish to learn more details, please refer to the follow the [ISTIO official website](https://github.com/istio/istio) or you can follow the steps below to perform a simple test and installation.
 
 >In order to utilize Istio's features, you must have a multi-cluster environment with at least two Kubernetes clusters. Here is a simple example below to illustrate how to configure a multi-cluster environment.
 
-#### first. cluster rename The two clusters need to have different names.
+#### first. rename the cluster into two different names.
 ##### Modify the areas marked in red on the image below
 ```
 kubectl edit configmaps kubeadm-config -n kube-system
@@ -95,7 +95,7 @@ vim ~/.kube/config
 ```
 ![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/38ed8e7a-7665-4a4e-8585-450d8529444e)
 
-##### Review the results.
+##### check the results.
 ```
 kubectl config view
 ```
@@ -143,19 +143,22 @@ kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manif
 ##### Setting up an EXTERNAL-IP in Kubernetes using MetalLB.
 >addresses: You can modify it according to the IP address you want to configure
 ```
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      auto-assign: true
-      addresses:
-      - 192.168.1.241-192.168.1.241
+cat << EOF > MetalLB_config.yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     namespace: metallb-system
+     name: config
+   data:
+     config: |
+       address-pools:
+       - name: default
+         protocol: layer2
+         auto-assign: true
+         addresses:
+         - 192.168.1.241-192.168.1.241 
+   EOF
+kubectl apply -f MetalLB_config.yaml
 ```
 #### Establishing Istio Cross-Cluster Connectivity
 ##### Download Istio
