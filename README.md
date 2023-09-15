@@ -75,6 +75,199 @@ kubectl apply -f ovs-net-crd.yaml
 ```
 
 
+
+
+### ISTIO
+>If you wish to learn more details, please refer to the following [ISTIO]([https://github.com/istio/istio]) or you can follow the steps below to perform a simple test and installation.
+
+>In order to utilize Istio's features, you must have a multi-cluster environment with at least two Kubernetes clusters. Here is a simple example below to illustrate how to configure a multi-cluster environment.
+
+#### first. cluster rename The two clusters need to have different names.
+##### Modify the areas marked in red on the image below
+```
+kubectl edit configmaps kubeadm-config -n kube-system
+```
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/d092129b-f4d4-4c01-a4c0-565e1d6f83dc)
+
+##### Modify the corresponding areas on the image to reflect the renamed cluster names.
+```
+vim ~/.kube/config
+```
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/38ed8e7a-7665-4a4e-8585-450d8529444e)
+
+##### Review the results.
+```
+kubectl config view
+```
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/79589676-5bdd-40bb-9681-18be230f9be6)
+
+#### In the primary cluster, add configuration information for the subordinate cluster
+##### In the subordinate cluster
+```
+vim ~/.kube/config
+```
+>Copy the information for 'cluster,' 'contexts,' and 'users' below, as you will need to paste it into the configuration of the primary cluster later.
+##### cluster
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/29c4691a-db8c-40b6-ae44-cba5084c7eec)
+
+##### contexts
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/fed4f1d1-a924-489d-a567-cf65c82de81a)
+
+#####  users
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/65a6c3df-0cfc-4efc-adff-250ad875e1b4)
+
+##### Go to the primary cluster
+```
+vim ~/.kube/config
+```
+>Paste the copied configuration into the corresponding location below the red line
+![圖片](https://github.com/free5gmano/kube5gnfvo/assets/36353259/aac7bd17-79ca-4e71-8554-a5f0d75203a7)
+
+#### install MetalLB
+```
+kubectl edit configmap -n kube-system kube-proxy
+```
+##### Modify the configuration below
+```
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+mode: "ipvs"
+ipvs:
+  strictARP: true
+```
+##### Install
+```
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+```
+##### Setting up an EXTERNAL-IP in Kubernetes using MetalLB.
+>addresses: You can modify it according to the IP address you want to configure
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      auto-assign: true
+      addresses:
+      - 192.168.1.241-192.168.1.241
+```
+#### Establishing Istio Cross-Cluster Connectivity
+##### Download Istio
+>Follow the steps [here](https://istio.io/latest/docs/setup/getting-started/#download) to complete the download.
+##### Set Environment Variables(Navigate to the Istio folder)
+```
+export CTX_CLUSTER1=$(kubectl config view -o jsonpath='{.contexts[0].name}')
+export CTX_CLUSTER2=$(kubectl config view -o jsonpath='{.contexts[1].name}')
+export PATH=$PWD/bin:$PATH
+```
+##### Create a key(Both cluster 1 and 2 need to be created)
+```
+kubectl create --context=$CTX_CLUSTER1 ns istio-system
+
+# in Istio folder
+kubectl create secret generic cacerts -n istio-system --from-file=samples/certs/ca-cert.pem --from-file=samples/certs/ca-key.pem --from-file=samples/certs/root-cert.pem --from-file=samples/certs/cert-chain.pem
+```
+#### Configure the primary cluster
+##### Configure the primary remote settings
+```
+cat <<EOF > cluster1.yaml
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    global:
+      meshID: mesh1
+      multiCluster:
+        clusterName: cluster-primary
+      network: network1
+EOF
+istioctl install --context="${CTX_CLUSTER1}" -f cluster1.yaml
+```
+##### Install the primary remote east-west gateway
+```
+samples/multicluster/gen-eastwest-gateway.sh \
+    --mesh mesh1 --cluster cluster-primary --network network1 | \
+    istioctl --context="${CTX_CLUSTER1}" install -y -f -
+```
+##### Expose the control plane
+```
+kubectl apply --context="${CTX_CLUSTER1}" -n istio-system -f \
+    samples/multicluster/expose-istiod.yaml
+```
+##### Expose the API server for Cluster 1
+```
+kubectl --context="${CTX_CLUSTER1}" apply -n istio-system -f \
+    samples/multicluster/expose-services.yaml
+```
+#### Configure the remote cluster
+##### Set up networking for Cluster 2
+```
+kubectl --context="${CTX_CLUSTER2}" get namespace istio-system && \
+  kubectl --context="${CTX_CLUSTER2}" label namespace istio-system topology.istio.io/network=network2
+```
+##### Authorize access to the Cluster 1 API server for Cluster 2
+```
+istioctl x create-remote-secret \
+    --context="${CTX_CLUSTER2}" \
+    --name=cluster-remote | \
+    kubectl apply -f - --context="${CTX_CLUSTER1}"
+```
+##### Set the environment variable for the Cluster East-West Gateway IP
+```
+export DISCOVERY_ADDRESS=$(kubectl \
+    --context="${CTX_CLUSTER1}" \
+    -n istio-system get svc istio-eastwestgateway \
+    -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+##### Configure the Cluster 2 YAML descriptor file
+```
+cat <<EOF > cluster2.yaml
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    global:
+      meshID: mesh1
+      multiCluster:
+        clusterName: cluster2
+      network: network2
+      remotePilotAddress: ${DISCOVERY_ADDRESS}
+EOF
+```
+##### Install Istio on Cluster 2
+```
+istioctl install --context="${CTX_CLUSTER2}" -f cluster2.yaml
+```
+
+##### Install the East-West Gateway on Cluster 2
+```
+samples/multicluster/gen-eastwest-gateway.sh \
+    --mesh mesh1 --cluster cluster-remote --network network2 | \
+    istioctl --context="${CTX_CLUSTER2}" install -y -f -
+```
+
+##### Expose the API server for Cluster 2
+```
+kubectl --context="${CTX_CLUSTER2}" apply -n istio-system -f \
+    samples/multicluster/expose-services.yaml
+```
+#### Istio automatic sidecar injection configuration
+##### Configure automatic sidecar injection for the namespace
+```
+kubectl label namespace ${namespace} istio-injection=enabled
+```
+#### Istio cross-cluster feature testing
+>If you use the following command to test, you should see that the service switches between clusters. When a service in one cluster goes idle, the service in the other cluster activates. If this happens, it indicates that Istio configuration is complete
+```
+for i in $(seq 10); do kubectl --context=$CTX_CLUSTER1 -n sample exec "$(kubectl get pod --context="${CTX_CLUSTER1}" -n sample -l app=sleep -o jsonpath='{.items[0].metadata.name}')" -c sleep -- curl -s helloworld:5000/hello; done
+```
+
 ## Quick Start
 ### Database migrate
 ```
