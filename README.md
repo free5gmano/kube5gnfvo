@@ -8,6 +8,7 @@
   - [Multus](#Multus)
   - [OpenvSwitch](#OpenvSwitch)
   - [OVS-CNI](#OVS-CNI)
+  - [ISTIO](#ISTIO)
 - [Quick Start](#quick-start)
   - [Deploy kube5gnfvo](#Database migrate)
   - [Example deployments](#example-deployments)
