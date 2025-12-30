@@ -38,16 +38,18 @@ class MonitorDeployment(BaseKubernetes):
                 target=partial(self._get_pod_event),
                 daemon=True
             ).start()
-            threading.Thread(
-                target=self._get_replica_event,
-                args=(self.kubevirt_api.list_virtual_machine_instance_replica_set_for_all_namespaces,
-                      self.virtual_machine_replica_set),
-                daemon=True
-            ).start()
-            threading.Thread(
-                target=partial(self._get_virtual_machine_event),
-                daemon=True
-            ).start()
+            # 只有在 kubevirt_api 可用時才啟動相關線程
+            if self.kubevirt_api is not None:
+                threading.Thread(
+                    target=self._get_replica_event,
+                    args=(self.kubevirt_api.list_virtual_machine_instance_replica_set_for_all_namespaces,
+                          self.virtual_machine_replica_set),
+                    daemon=True
+                ).start()
+                threading.Thread(
+                    target=partial(self._get_virtual_machine_event),
+                    daemon=True
+                ).start()
         is_running = True
 
     def _get_replica_event(self, events, record: dict):
@@ -64,33 +66,39 @@ class MonitorDeployment(BaseKubernetes):
                     record[_name] = {'replicas': replicas}
 
     def _get_virtual_machine_event(self):
+        if self.kubevirt_api is None:
+            return
         while True:
-            for vmi in self.kubevirt_api.list_virtual_machine_instance_for_all_namespaces().items:
-                metadata = vmi.metadata
-                name = metadata.name
-                deletion_timestamp = metadata.deletion_timestamp
-                status = vmi.status
-                phase = status.phase
+            try:
+                for vmi in self.kubevirt_api.list_virtual_machine_instance_for_all_namespaces().items:
+                    metadata = vmi.metadata
+                    name = metadata.name
+                    deletion_timestamp = metadata.deletion_timestamp
+                    status = vmi.status
+                    phase = status.phase
 
-                if status.conditions:
-                    if 'Failed' == phase:
-                        if not deletion_timestamp:
-                            error_reason = None
-                            error_message = None
-                            type_record = list()
-                            for conditions in status.conditions:
-                                type_record.append(conditions.type)
-                                if conditions.type != 'LiveMigratable' and conditions.type != 'Ready':
-                                    error_reason = conditions.reason
-                                    error_message = conditions.message
-                            if 'Ready' not in type_record:
-                                self.alarm.create_alarm(name, error_reason, error_message, False)
-                                if name in list(self.virtual_machine_status):
-                                    self.virtual_machine_status.pop(name)
-                        elif name in list(self.virtual_machine_status):
-                            self.virtual_machine_status.pop(name)
-                    elif phase == 'Running' and name:
-                        self.virtual_machine_status[name] = phase
+                    if status.conditions:
+                        if 'Failed' == phase:
+                            if not deletion_timestamp:
+                                error_reason = None
+                                error_message = None
+                                type_record = list()
+                                for conditions in status.conditions:
+                                    type_record.append(conditions.type)
+                                    if conditions.type != 'LiveMigratable' and conditions.type != 'Ready':
+                                        error_reason = conditions.reason
+                                        error_message = conditions.message
+                                if 'Ready' not in type_record:
+                                    self.alarm.create_alarm(name, error_reason, error_message, False)
+                                    if name in list(self.virtual_machine_status):
+                                        self.virtual_machine_status.pop(name)
+                            elif name in list(self.virtual_machine_status):
+                                self.virtual_machine_status.pop(name)
+                        elif phase == 'Running' and name:
+                            self.virtual_machine_status[name] = phase
+            except Exception:
+                # 如果 kubevirt 不可用或出現錯誤，靜默處理
+                pass
 
     def _get_pod_event(self):
         while True:

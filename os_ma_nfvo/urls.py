@@ -16,7 +16,7 @@
 """os_ma_nfvo URL Configuration
 
 The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/2.2/topics/http/urls/
+    https://docs.djangoproject.com/en/4.2/topics/http/urls/
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -28,9 +28,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework import permissions
-from django.conf.urls import url
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -63,6 +62,7 @@ ns_fault_schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,),
     patterns=ns_fault,
 )
+
 ns_instance_schema_view = get_schema_view(
     openapi.Info(
         title="SOL005 - NS Lifecycle Management Interface",
@@ -118,11 +118,10 @@ vnf_pkg_schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    url(r'^swagger/v1/ns_fault/$', ns_fault_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    url(r'^swagger/v1/nsd/$', nsd_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    url(r'^swagger/v1/vnfpkgm/$', vnf_pkg_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui1'),
-    url(r'^swagger/v1/ns_instance/$', ns_instance_schema_view.with_ui('swagger', cache_timeout=0),
-        name='schema-swagger-ui1'),
+    re_path(r'^swagger/v1/ns_fault/$', ns_fault_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    re_path(r'^swagger/v1/nsd/$', nsd_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    re_path(r'^swagger/v1/vnfpkgm/$', vnf_pkg_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui1'),
+    re_path(r'^swagger/v1/ns_instance/$', ns_instance_schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui1'),
     path('', include('VnfPackageManagement.urls')),
     path('', include('VnfPackageSubscription.urls')),
     path('', include('NSDManagement.urls')),

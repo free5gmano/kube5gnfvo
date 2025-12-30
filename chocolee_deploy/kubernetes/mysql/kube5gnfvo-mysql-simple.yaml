@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube5gnfvo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb-config
+  namespace: kube5gnfvo
+data:
+  initdb.sql: |
+    CREATE DATABASE IF NOT EXISTS kube5gnfvo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE IF NOT EXISTS os_ma_nfvo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube5gnfvo-mysql
+  namespace: kube5gnfvo
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kube5gnfvo-mysql
+  template:
+    metadata:
+      labels:
+        app: kube5gnfvo-mysql
+    spec:
+      containers:
+      - image: mysql:8.0
+        name: kube5gnfvo-mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        - name: mysql-initdb
+          mountPath: /docker-entrypoint-initdb.d
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - mysqladmin ping -u root -p$MYSQL_ROOT_PASSWORD
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - mysqladmin ping -u root -p$MYSQL_ROOT_PASSWORD
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: mysql-data
+        emptyDir: {}
+      - name: mysql-initdb
+        configMap:
+          name: mysql-initdb-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube5gnfvo-mysql
+  namespace: kube5gnfvo
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: kube5gnfvo-mysql

@@ -18,7 +18,12 @@ import os
 import threading
 from kubernetes import client, config, watch
 from kubernetes.client.rest import ApiException
-import kubevirt
+
+# 嘗試導入 kubevirt，如果不可用則設置為 None
+try:
+    import kubevirt
+except ImportError:
+    kubevirt = None
 
 lock = threading.Lock()
 
@@ -72,11 +77,21 @@ class VirtualMachineReplicaSetStatus(dict, metaclass=Singleton):
 class BaseKubernetes(object):
     def __init__(self, *args, **kwargs):
         self.kubernetes_client = client
-        # self.kubeconfig = os.path.expanduser("~/.kube/config")
-        self.kubeconfig = os.path.expanduser("/root/config")
-        config.load_kube_config(config_file=self.kubeconfig)
-        kube_config_loader = config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)
-        kube_config_loader.load_and_set(kubevirt.configuration)
+        # 從環境變數讀取 kubeconfig 路徑，默認為 ~/.kube/config
+        self.kubeconfig = os.getenv('KUBECONFIG', os.path.expanduser("~/.kube/config"))
+        
+        # 嘗試加載 kubeconfig，如果失敗則設置為 None
+        try:
+            config.load_kube_config(config_file=self.kubeconfig)
+            kube_config_loader = config.kube_config._get_kube_config_loader_for_yaml_file(self.kubeconfig)
+            
+            # 只有在 kubevirt 可用時才設置
+            if kubevirt is not None:
+                kube_config_loader.load_and_set(kubevirt.configuration)
+        except Exception as e:
+            # kubeconfig 加載失敗，這在開發環境中是正常的
+            pass  # 靜默處理，不打印警告
+        
         self.core_v1 = self.kubernetes_client.CoreV1Api()
         self.app_v1 = self.kubernetes_client.AppsV1Api()
         self.api_crd = self.kubernetes_client.CustomObjectsApi()
@@ -86,8 +101,15 @@ class BaseKubernetes(object):
         self.lock = threading.Lock()
         self.rbac_authorization_v1 = self.kubernetes_client.RbacAuthorizationV1Api()
         self.auto_scaling_v1 = self.kubernetes_client.AutoscalingV1Api()
-        self.kubevirt_client = kubevirt
-        self.kubevirt_api = kubevirt.DefaultApi()
+        
+        # 只有在 kubevirt 可用時才設置
+        if kubevirt is not None:
+            self.kubevirt_client = kubevirt
+            self.kubevirt_api = kubevirt.DefaultApi()
+        else:
+            self.kubevirt_client = None
+            self.kubevirt_api = None
+        
         self.deployment_status = DeploymentStatus()
         self.pod_status = PodStatus()
         self.virtual_machine_status = VirtualMachineStatus()

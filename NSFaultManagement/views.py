@@ -44,10 +44,14 @@ class NSFaultManagementViewSet(viewsets.ModelViewSet):
 
         alarm = self.get_object()
         response = request.data.copy()
-        request.data['ackState'] = request.data['AlarmModifications']['ackState']
-        request.data['managedObjectId'] = alarm.managedObjectId
-        super().update(request)
-        return Response(response, status=status.HTTP_200_OK)
+        
+        # 更新告警的 ackState
+        alarm.ackState = request.data['AlarmModifications']['ackState']
+        alarm.save()
+        
+        # 返回更新後的告警
+        serializer = self.get_serializer(alarm)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):
         """

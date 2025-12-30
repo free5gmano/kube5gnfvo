@@ -6,20 +6,13 @@ metadata:
     kubevirt.io: ""
   name: kubevirt
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   labels:
     operator.kubevirt.io: ""
   name: kubevirts.kubevirt.io
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
-  - JSONPath: .status.phase
-    name: Phase
-    type: string
   group: kubevirt.io
   names:
     categories:
@@ -31,11 +24,25 @@ spec:
     - kvs
     singular: kubevirt
   scope: Namespaced
-  version: v1alpha3
   versions:
   - name: v1alpha3
     served: true
     storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+          status:
+            type: object
+    additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

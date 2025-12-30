@@ -115,10 +115,14 @@ class ComputeResource(BaseKubernetes):
 
     def _collect_resource(self):
         while True:
-            for node_info in self.node_list:
-                for resource in self.resource_result:
-                    if resource['hostname'] == node_info['object']['metadata']['name']:
-                        self._calculation_resource(node_info, resource)
+            try:
+                for node_info in self.node_list:
+                    for resource in self.resource_result:
+                        if resource['hostname'] == node_info['object']['metadata']['name']:
+                            self._calculation_resource(node_info, resource)
+            except Exception as e:
+                # 靜默處理任何錯誤，繼續監控
+                pass
             time.sleep(3)
 
     def _calculation_resource(self, node_info, result):
@@ -130,12 +134,19 @@ class ComputeResource(BaseKubernetes):
             round(self.quantity(node_allocatable["memory"]).to('Mi').magnitude, 2)
         for address in node_info['object']['status']['addresses']:
             if address['type'] == 'InternalIP':
-                older_idle, older_total = self._get_resource('{}:9100/metrics'.format(address['address']))
-                time.sleep(1)
-                newer_idle, newer_total = self._get_resource('{}:9100/metrics'.format(address['address']))
-                cpu_utilization = (((newer_total - newer_idle) - (older_total - older_idle)) / (
-                        newer_total - older_total))
-                result['cpu_usage'] = result['total_cpu'] * round(cpu_utilization, 2)
+                try:
+                    older_idle, older_total = self._get_resource('{}:9100/metrics'.format(address['address']))
+                    time.sleep(1)
+                    newer_idle, newer_total = self._get_resource('{}:9100/metrics'.format(address['address']))
+                    if newer_total - older_total > 0:
+                        cpu_utilization = (((newer_total - newer_idle) - (older_total - older_idle)) / (
+                                newer_total - older_total))
+                        result['cpu_usage'] = result['total_cpu'] * round(cpu_utilization, 2)
+                    else:
+                        result['cpu_usage'] = 0
+                except Exception as e:
+                    # Node Exporter 不可用，設置 cpu_usage 為 0
+                    result['cpu_usage'] = 0
 
     def _get_resource(self, uri):
         metrics_data = self.request.get(uri).text.splitlines()

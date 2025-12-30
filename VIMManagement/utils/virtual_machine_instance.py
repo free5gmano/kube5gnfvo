@@ -1,6 +1,5 @@
 import os
-
-from django.utils.crypto import random
+import random
 
 from VIMManagement.utils.kubernetes_api import KubernetesApi
 from utils.etcd_client.etcd_client import EtcdClient
