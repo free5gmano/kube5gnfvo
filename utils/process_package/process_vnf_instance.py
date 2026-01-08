@@ -28,8 +28,12 @@ class ProcessVNFInstance(BaseProcess):
             self.vnf_instance_name = vnf_instance_name.lower()
 
     def get_root_path(self):
-        root, dirs, files = walk_file('{}{}'.format(vnf_package_base_path, self.package_id), 'package_content')
-        return '{}/{}/'.format(root, dirs.pop(0))
+        result = walk_file('{}{}'.format(vnf_package_base_path, self.package_id), 'package_content')
+        if result is None:
+            raise FileNotFoundError(f"VNF package directory not found: {vnf_package_base_path}{self.package_id}")
+        root, dirs, files = result
+        # 返回 package_content 目錄的路徑
+        return root + '/'
 
     # TODO
     def _process_network(self, net_list, vdu_info, isTemplate=False, max_instances=None):

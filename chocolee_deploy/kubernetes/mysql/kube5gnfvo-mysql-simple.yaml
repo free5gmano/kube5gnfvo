@@ -73,8 +73,10 @@ metadata:
   name: kube5gnfvo-mysql
   namespace: kube5gnfvo
 spec:
+  type: NodePort
   ports:
   - port: 3306
     targetPort: 3306
+    nodePort: 30306
   selector:
     app: kube5gnfvo-mysql

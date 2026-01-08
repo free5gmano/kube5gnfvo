@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dual-network-nic-etcd-cluster-client
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - name: client
+    port: 2379
+    targetPort: 2379
+    nodePort: 32379
+  - name: peer
+    port: 2380
+    targetPort: 2380
+    nodePort: 32380
+  selector:
+    app: etcd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dual-network-nic-etcd-cluster
+  namespace: default
+spec:
+  type: ClusterIP
+  ports:
+  - name: client
+    port: 2379
+    targetPort: 2379
+  - name: peer
+    port: 2380
+    targetPort: 2380
+  selector:
+    app: etcd
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd
+  template:
+    metadata:
+      labels:
+        app: etcd
+    spec:
+      containers:
+      - name: etcd
+        image: quay.io/coreos/etcd:v3.5.9
+        ports:
+        - containerPort: 2379
+          name: client
+        - containerPort: 2380
+          name: peer
+        env:
+        - name: ETCD_LISTEN_CLIENT_URLS
+          value: "http://0.0.0.0:2379"
+        - name: ETCD_ADVERTISE_CLIENT_URLS
+          value: "http://0.0.0.0:2379"
+        - name: ETCD_LISTEN_PEER_URLS
+          value: "http://0.0.0.0:2380"
+        - name: ETCD_INITIAL_ADVERTISE_PEER_URLS
+          value: "http://0.0.0.0:2380"
+        - name: ETCD_INITIAL_CLUSTER
+          value: "default=http://0.0.0.0:2380"
+        - name: ETCD_INITIAL_CLUSTER_STATE
+          value: "new"
+        - name: ETCD_INITIAL_CLUSTER_TOKEN
+          value: "etcd-cluster"
+        - name: ETCD_NAME
+          value: "default"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: etcd-data
+          mountPath: /etcd-data
+      volumes:
+      - name: etcd-data
+        emptyDir: {}

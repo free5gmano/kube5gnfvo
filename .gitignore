@@ -128,3 +128,8 @@ dmypy.json
 
 # MAC OS
 .DS_Store
+
+# VNF & NSD & OS_MA_NFVO_VOLUME
+VNFPackage
+NSD
+os_ma_nfvo_volume

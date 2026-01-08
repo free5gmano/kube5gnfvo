@@ -86,9 +86,10 @@ class VnfPkgInfoSerializer(serializers.ModelSerializer):
         return vnf_package_info
 
     def update(self, instance, validated_data):
-        if 'operationalState' in validated_data and 'userDefinedData' in validated_data:
+        if 'operationalState' in validated_data:
             instance.operationalState = validated_data['operationalState']
-            instance.userDefinedData = validated_data['userDefinedData']
+            if 'userDefinedData' in validated_data:
+                instance.userDefinedData = validated_data['userDefinedData']
             instance.save()
         else:
             instance.vnfdId = validated_data['vnfdId']

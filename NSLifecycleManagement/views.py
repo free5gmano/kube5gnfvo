@@ -93,16 +93,30 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             raise APIException(detail='nsdId is not existing',
                                code=status.HTTP_409_CONFLICT)
 
-        vnf_pkg_Ids = json.loads(ns_descriptors_info.vnfPkgIds)
-        nsd_info_id = str(ns_descriptors_info.id)
-        request.data['nsdInfoId'] = nsd_info_id
-        request.data['nsInstanceName'] = request.data['nsName']
-        request.data['nsInstanceDescription'] = request.data['nsDescription']
-        request.data['nsdId'] = request.data['nsdId']
-        request.data['vnfInstance'] = get_vnf_instance(vnf_pkg_Ids)
-        request.data['_links'] = {'self': request.build_absolute_uri()}
+        try:
+            # 處理 vnfPkgIds 可能為 None 的情況
+            vnf_pkg_Ids = []
+            if ns_descriptors_info.vnfPkgIds:
+                vnf_pkg_Ids = json.loads(ns_descriptors_info.vnfPkgIds)
+            
+            nsd_info_id = str(ns_descriptors_info.id)
+            request.data['nsdInfoId'] = nsd_info_id
+            request.data['nsInstanceName'] = request.data['nsName']
+            request.data['nsInstanceDescription'] = request.data['nsDescription']
+            request.data['nsdId'] = request.data['nsdId']
+            request.data['vnfInstance'] = get_vnf_instance(vnf_pkg_Ids)
+            request.data['_links'] = {'self': request.build_absolute_uri()}
 
-        return super().create(request)
+            return super().create(request)
+        except Exception as e:
+            import traceback
+            print(f"\n{'='*60}")
+            print(f"[NS 實例建立] ❌ 錯誤: {str(e)}")
+            print(f"[NS 實例建立] 詳細堆棧:")
+            print(traceback.format_exc())
+            print(f"{'='*60}\n")
+            raise APIException(detail=f'Error creating NS instance: {str(e)}',
+                               code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_success_headers(self, data):
         return {'Location': data['_links']['self']}
@@ -166,17 +180,53 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                 raise APIException(detail='vnfInstanceId is not existing',
                                    code=status.HTTP_409_CONFLICT)
 
-            vnf_instance = ns_instance.NsInstance_VnfInstance.get(id=vnf_instance_info['vnfInstanceId'])
+            vnf_instance_id = vnf_instance_info['vnfInstanceId']
+            
+            # 嘗試用 ID 查詢，如果失敗則用名稱查詢
+            try:
+                vnf_instance = ns_instance.NsInstance_VnfInstance.get(id=vnf_instance_id)
+            except Exception as e:
+                print(f"[NS 實例化] ⚠ 用 ID 查詢失敗: {str(e)}")
+                # 嘗試用名稱查詢
+                try:
+                    vnf_instance = ns_instance.NsInstance_VnfInstance.get(vnfInstanceName=vnf_instance_id)
+                    print(f"[NS 實例化] ✓ 用名稱查詢成功: {vnf_instance_id}")
+                except Exception as e2:
+                    print(f"[NS 實例化] ✗ 用名稱查詢也失敗: {str(e2)}")
+                    raise APIException(detail=f'vnf_instance {vnf_instance_id} is not existing',
+                                       code=status.HTTP_409_CONFLICT)
+            
             if vnf_instance is None:
                 raise APIException(detail='vnf_instance is not existing',
                                    code=status.HTTP_409_CONFLICT)
 
             vnf_instance.VnfInstance_instantiatedVnfInfo.vnfState = 'STARTED'
             vnf_instance.VnfInstance_instantiatedVnfInfo.save()
-            create_network_service = \
-                CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
+            
+            def deploy_vnf_with_error_handling(vnf_inst):
+                try:
+                    import traceback
+                    print(f"\n{'='*60}")
+                    print(f"[VNF 部署] 開始部署 VNF: {vnf_inst.vnfInstanceName}")
+                    print(f"[VNF 部署] VNF 包 ID: {vnf_inst.vnfPkgId}")
+                    print(f"{'='*60}\n")
+                    
+                    create_network_service = CreateService(vnf_inst.vnfPkgId, vnf_inst.vnfInstanceName)
+                    print(f"[VNF 部署] ✅ CreateService 初始化成功")
+                    print(f"[VNF 部署] 根路徑: {create_network_service.root_path}")
+                    
+                    create_network_service.process_instance()
+                    print(f"[VNF 部署] ✅ VNF 部署成功\n")
+                except Exception as e:
+                    import traceback
+                    print(f"\n[VNF 部署] ❌ VNF 部署錯誤: {str(e)}")
+                    print(f"[VNF 部署] 詳細信息:")
+                    print(traceback.format_exc())
+                    print(f"{'='*60}\n")
+            
             threading.Thread(
-                target=partial(create_network_service.process_instance),
+                target=deploy_vnf_with_error_handling,
+                args=(vnf_instance,),
                 daemon=True
             ).start()
 

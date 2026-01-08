@@ -18,9 +18,11 @@ from rest_framework import viewsets
 from rest_framework.exceptions import APIException
 from rest_framework.utils import json
 
+from pathlib import Path
 from NSDManagement.serializers import *
 from rest_framework.response import Response
 from rest_framework import status
+from utils.forder_handler import normalize_package_content
 from rest_framework.decorators import action
 from django.http import HttpResponse
 from VnfPackageManagement.models import *
@@ -156,23 +158,36 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
                 raise APIException(detail='NSD nsdOnboardingState is not {}'.format(created),
                                    code=status.HTTP_409_CONFLICT)
 
-            if 'application/zip' not in request.META['HTTP_ACCEPT']:
-                raise APIException(detail='HEAD need to have application/zip value')
+            try:
+                file_obj = request.FILES.get('file') or request.data.get('file')
+                if not file_obj:
+                    raise APIException(detail='No file provided', code=status.HTTP_400_BAD_REQUEST)
+                
+                extract_dir = f"{nsd_base_path}{instance.id}/nsd_content/"
 
-            network_service_path = decompress_zip(
-                request.data["file"], '{}{}'.format(nsd_base_path, instance.id) + '/nsd_content/')
-            network_service_descriptor = NetworkServiceDescriptor(path=network_service_path)
-            nsd_content = network_service_descriptor.processing_data()
-            vnf_pkg_ids_list = list()
-            for vnfd in network_service_descriptor.get_constituent_vnfd():
-                vnf_pkg_ids_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
+                decompress_zip(file_obj, extract_dir)
 
-            nsd_content['vnfPkgIds'] = json.dumps(vnf_pkg_ids_list)
-            serializer = self.get_serializer(instance, data=nsd_content)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            self.kafka_notification.notify(kwargs['pk'], 'NSD({}) had been upload'.format(kwargs['pk']))
-            return Response(status=status.HTTP_202_ACCEPTED)
+                # 扁平化：若 nsd_content 下只有一層（例如 amf/），就把內容搬上來
+                normalize_package_content(extract_dir)
+
+                # 後面全部用 extract_dir 當 CSAR root
+                csar_root = extract_dir if extract_dir.endswith("/") else extract_dir + "/"
+
+                network_service_descriptor = NetworkServiceDescriptor(path=csar_root)
+                nsd_content = network_service_descriptor.processing_data()
+                
+                vnf_pkg_ids_list = list()
+                for vnfd in network_service_descriptor.get_constituent_vnfd():
+                    vnf_pkg_ids_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
+
+                nsd_content['vnfPkgIds'] = json.dumps(vnf_pkg_ids_list)
+                serializer = self.get_serializer(instance, data=nsd_content)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                self.kafka_notification.notify(kwargs['pk'], 'NSD({}) had been upload'.format(kwargs['pk']))
+                return Response(status=status.HTTP_202_ACCEPTED)
+            except Exception as e:
+                raise APIException(detail=str(e), code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         elif request.method == 'GET':
             if on_boarded != instance.nsdOnboardingState:
                 raise APIException(detail='NSD nsdOnboardingState is not {}'.format(on_boarded),
@@ -188,3 +203,5 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
                                     status=status.HTTP_200_OK)
             response['Content-Disposition'] = 'attachment; filename=%s' % compression_result[1]
             return response
+
+

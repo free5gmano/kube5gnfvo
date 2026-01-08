@@ -7,6 +7,7 @@ drf_yasg==1.21.7
 kubernetes==32.0.0
 websocket-client==1.6.4
 etcd3==0.12.0
+protobuf==3.20.0
 
 # 安全和網路
 PyYAML==6.0.1
@@ -32,10 +33,10 @@ Pint==0.23
 
 # 資料庫
 django-mysql==4.12.0
-mysqlclient==2.2.0
+PyMySQL==1.1.0
+cryptography>=41.0.0
 
-# 部署工
-具
+# 部署工具
 psutil==5.9.6
 packaging==23.2
 hypothesis==6.92.1

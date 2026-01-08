@@ -15,6 +15,7 @@
 import io
 import os
 
+from pathlib import Path
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -24,6 +25,7 @@ from django.http import HttpResponse
 from django.utils.encoding import smart_str
 
 from VnfPackageManagement.models import VnfPkgInfo
+from utils.forder_handler import normalize_package_content
 from VnfPackageManagement.serializers import VnfPkgInfoSerializer, vnf_package_base_path
 from utils.base_request import BaseRequest
 from utils.file_manipulation import remove_file, decompress_zip, copy_file, compression_dir_zip
@@ -86,7 +88,8 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
             9.4.3.3.4-2 for URI query parameters, request and response data structures, \
             and response codes.
         """
-        if disabled != request.data['operationalState'] and enabled != request.data['operationalState']:
+        operational_state = request.data.get('operationalState')
+        if operational_state and operational_state not in [disabled, enabled]:
             raise APIException(detail='ValueError: invalid operationalState',
                                code=status.HTTP_409_CONFLICT)
 
@@ -138,22 +141,38 @@ class VNFPackagesViewSet(viewsets.ModelViewSet):
                 raise APIException(detail='VNF Package onboardingState is not {}'.format(created),
                                    code=status.HTTP_409_CONFLICT)
 
-            if 'application/zip' not in request.META['HTTP_ACCEPT']:
-                raise APIException(detail='HEAD need to have application/zip value')
+            # 移除 Accept header 檢查，允許所有格式
+            # accept_header = request.META.get('HTTP_ACCEPT', '*/*')
+            # if accept_header and 'application/zip' not in accept_header and accept_header != '*/*' and 'multipart' not in accept_header:
+            #     raise APIException(detail='HEAD need to have application/zip value')
 
             vnf_package_path = '{}{}'.format(vnf_package_base_path, instance.id)
-            vnf_package_content_path = decompress_zip(
-                request.data['file'], vnf_package_path + '/package_content/')
-            copy_file(vnf_package_path + "/package_content/", vnf_package_path + "/vnfd/", 'Definitions')
-            process_vnf_instance = PackageVNF(path=vnf_package_content_path)
-            input_value = process_vnf_instance.processing_data()
+            # 嘗試從 request.FILES 或 request.data 中獲取文件
+            file_obj = request.FILES.get('file') or request.data.get('file')
+            if not file_obj:
+                raise APIException(detail='No file provided', code=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                package_content_dir = os.path.join(vnf_package_path, "package_content/")
 
-            serializer = self.get_serializer(instance, data=input_value)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+                # 解壓到固定目錄
+                decompress_zip(request.data['file'], package_content_dir)
 
-            self.kafka_notification.notify(kwargs['pk'], 'VNFPackage({}) had been upload'.format(kwargs['pk']))
-            return Response(status=status.HTTP_202_ACCEPTED)
+                normalize_package_content(package_content_dir)
+
+                # 後面所有流程都用 package_content_dir
+                copy_file(package_content_dir + "/", vnf_package_path + "/vnfd/", "Definitions")
+                process_vnf_instance = PackageVNF(path=package_content_dir)
+                input_value = process_vnf_instance.processing_data()
+
+                serializer = self.get_serializer(instance, data=input_value)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+
+                self.kafka_notification.notify(kwargs['pk'], 'VNFPackage({}) had been upload'.format(kwargs['pk']))
+                return Response(status=status.HTTP_202_ACCEPTED)
+            except Exception as e:
+                raise APIException(detail=str(e), code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         elif request.method == 'GET':
             if on_boarded != instance.onboardingState:
                 raise APIException(detail='VNF Package onboardingState is not {}'.format(on_boarded),

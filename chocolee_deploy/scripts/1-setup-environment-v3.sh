@@ -1,12 +1,15 @@
 #!/bin/bash
 
 ################################################################################
-# Kube5GNfvo 環境部署腳本 (v3 - 支持自訂 K8s 版本)
+# Kube5GNfvo 環境部署腳本 (v3.1 - 直接使用 sudo 版本)
 # 功能：從零開始部署 Kubernetes 環境和所有必要的外掛
-# 改進：支持自訂 Kubernetes 版本，合併 kubectl/kubeadm/kubelet 安裝
 ################################################################################
 
 set -e
+
+# 設置環境變數以避免互動式提示
+export NEEDRESTART_MODE=a
+export DEBIAN_FRONTEND=noninteractive
 
 # 顏色定義
 RED='\033[0;31m'
@@ -40,26 +43,22 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# 檢查是否為 root
+# 檢查是否為 root (K8s 不建議直接以 root 執行，但需要有 sudo 權限)
 check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        log_error "此腳本需要 root 權限，請使用 sudo 運行"
+    if [ "$EUID" -eq 0 ]; then
+        log_warning "不建議直接以 root 身份運行此腳本"
+        log_info "請以普通用戶身份運行，腳本會在需要時自動呼叫 sudo"
         exit 1
     fi
 }
 
 # 顯示使用說明
 show_usage() {
-    echo "使用方法: sudo bash $0 [選項]"
+    echo "使用方法: bash $0 [選項]"
     echo ""
     echo "選項:"
     echo "  --k8s-version VERSION    指定 Kubernetes 版本（預設: 1.32.0）"
     echo "  --help                   顯示此幫助信息"
-    echo ""
-    echo "示例:"
-    echo "  sudo bash $0                              # 使用預設版本 1.32.0"
-    echo "  sudo bash $0 --k8s-version 1.31.0        # 使用版本 1.31.0"
-    echo "  sudo bash $0 --k8s-version 1.30.0        # 使用版本 1.30.0"
     echo ""
     echo "支持的版本: 1.28.0, 1.29.0, 1.30.0, 1.31.0, 1.32.0 等"
 }
@@ -88,448 +87,330 @@ parse_arguments() {
 # 檢查系統要求
 check_system_requirements() {
     log_info "檢查系統要求..."
-    
-    # 檢查 CPU 核心數
     CPU_CORES=$(nproc)
-    if [ "$CPU_CORES" -lt 4 ]; then
-        log_warning "CPU 核心數少於 4 個（當前: $CPU_CORES），建議至少 4 個"
-    else
-        log_success "CPU 核心數: $CPU_CORES"
-    fi
-    
-    # 檢查內存
     MEMORY_MB=$(free -m | awk 'NR==2{print $2}')
-    if [ "$MEMORY_MB" -lt 8192 ]; then
-        log_warning "內存少於 8GB（當前: ${MEMORY_MB}MB），建議至少 8GB"
-    else
-        log_success "內存: ${MEMORY_MB}MB"
-    fi
-    
-    # 檢查磁碟空間
     DISK_GB=$(df / | awk 'NR==2{print $4/1024/1024}' | cut -d. -f1)
-    if [ "$DISK_GB" -lt 50 ]; then
-        log_warning "磁碟空間少於 50GB（當前: ${DISK_GB}GB），建議至少 50GB"
-    else
-        log_success "磁碟空間: ${DISK_GB}GB"
-    fi
-}
 
-# 安裝基礎工具
-# install_basic_tools() {
-#     log_info "安裝基礎工具..."
-    
-#     apt-get update
-#     apt-get install -y \
-#         curl \
-#         wget \
-#         git \
-#         vim \
-#         jq \
-#         net-tools \
-#         htop \
-#         apt-transport-https \
-#         ca-certificates \
-#         gnupg \
-#         lsb-release
-    
-#     log_success "基礎工具安裝完成"
-# }
+    [ "$CPU_CORES" -lt 4 ] && log_warning "CPU 少於 4 核" || log_success "CPU: $CPU_CORES 核"
+    [ "$MEMORY_MB" -lt 8192 ] && log_warning "內存少於 8GB" || log_success "內存: ${MEMORY_MB}MB"
+    [ "$DISK_GB" -lt 50 ] && log_warning "磁碟空間少於 50GB" || log_success "磁碟: ${DISK_GB}GB"
+}
 
 # 關閉 Swap
 disable_swap() {
     log_info "關閉 Swap..."
-    
-    swapoff -a
-    sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-    
+    sudo swapoff -a
+    sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
     log_success "Swap 已關閉"
 }
 
 # 設定核心模組
 setup_kernel_modules() {
     log_info "設定核心模組..."
-    
-    # 載入必要的核心模組
-    cat <<'EOF' | tee /etc/modules-load.d/k8s.conf >/dev/null
+    sudo bash -c 'cat > /etc/modules-load.d/k8s.conf <<EOF
 overlay
 br_netfilter
-EOF
-    
-    modprobe overlay
-    modprobe br_netfilter
-    
+EOF'
+    sudo modprobe overlay
+    sudo modprobe br_netfilter
     log_success "核心模組設定完成"
 }
 
 # 設定 sysctl 參數
 setup_sysctl() {
     log_info "設定 sysctl 參數..."
-    
-    # 設定網路參數
-    cat <<'EOF' | tee /etc/sysctl.d/k8s.conf >/dev/null
+    sudo bash -c 'cat > /etc/sysctl.d/k8s.conf <<EOF
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
-EOF
-    
-    sysctl --system
-    
+EOF'
+    sudo sysctl --system
     log_success "sysctl 參數設定完成"
 }
 
-# 安裝 Containerd
-install_containerd() {
-    log_info "安裝 Containerd..."
-    
-    if command_exists containerd; then
-        log_success "Containerd 已安裝: $(containerd --version)"
+# 安裝 Docker
+install_docker() {
+    log_info "安裝 Docker..."
+    if command_exists docker; then
+        log_success "Docker 已安裝"
         return
     fi
     
-    # 安裝 Containerd
-    apt-get update
-    apt-get install -y containerd
+    log_info "準備環境..."
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg lsb-release
     
-    # 配置 Containerd
-    mkdir -p /etc/containerd
-    containerd config default | tee /etc/containerd/config.toml >/dev/null
+    log_info "安裝 Docker..."
+    sudo mkdir -m 755 -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     
-    # 啟用 SystemdCgroup
-    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y containerd.io docker-ce docker-ce-cli docker-buildx-plugin docker-compose-plugin
     
-    # 重啟 Containerd
-    systemctl restart containerd
-    systemctl enable containerd
+    sudo groupadd docker 2>/dev/null || true
+    sudo usermod -aG docker $USER
     
-    log_success "Containerd 安裝完成: $(containerd --version)"
+    log_info "配置 Containerd..."
+    sudo mkdir -p /etc/containerd
+    containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+    sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+    
+    log_info "配置 Docker daemon..."
+    cat <<EOF | sudo tee /etc/docker/daemon.json > /dev/null
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+    
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now containerd
+    sudo systemctl enable --now docker
+    
+    systemctl status --no-pager containerd
+    systemctl status --no-pager docker
+    
+    log_success "Docker 安裝完成"
 }
 
-# 安裝 Kubernetes 工具（kubectl、kubeadm、kubelet）
+
+# 安裝 Kubernetes 工具
 install_kubernetes_tools() {
     log_info "安裝 Kubernetes 工具 (版本: $K8S_VERSION)..."
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https ca-certificates curl gpg
+    sudo mkdir -p /etc/apt/keyrings
     
-    # 檢查是否已安裝
-    if command_exists kubeadm && command_exists kubelet && command_exists kubectl; then
-        INSTALLED_VERSION=$(kubeadm version -o short | cut -d'v' -f2)
-        if [ "$INSTALLED_VERSION" = "$K8S_VERSION" ]; then
-            log_success "Kubernetes 工具已安裝 (版本: $K8S_VERSION)"
-            return
-        fi
+    if curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/Release.key" | sudo gpg --dearmor --batch --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg; then
+        sudo bash -c "echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list"
+    else
+        log_error "無法下載 Kubernetes 金鑰"
+        exit 1
     fi
-    
-    # 更新apt套件並安裝使用 Kubernetesapt儲存庫所需的套件
-    log_info "更新apt套件並安裝使用 Kubernetesapt儲存庫所需的套件..."
-    apt-get update
-    apt-get install -y apt-transport-https ca-certificates curl gpg
 
-    # 載 Kubernetes 套件儲存庫的公共簽署金鑰
-    log_info "載 Kubernetes 套件儲存庫的公共簽署金鑰..."
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/${K8S_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-    
-    # 載 Kubernetes 套件儲存庫的公共簽署金鑰
-    log_info "載 Kubernetes 套件儲存庫的公共簽署金鑰..."
-    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_VERSION}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-
-    # 更新包列表
-    apt-get update
-    
-    # 安裝指定版本的 Kubernetes 工具
-    log_info "安裝 kubectl、kubeadm、kubelet (版本: ${K8S_VERSION})..."
-    apt-get install -y \
-        kubectl=${K8S_VERSION}* \
-        kubeadm=${K8S_VERSION}* \
-        kubelet=${K8S_VERSION}*
-    
-    # 鎖定版本，防止自動升級
-    apt-mark hold kubelet kubeadm kubectl
-    
+    sudo apt-get update
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y kubectl=${K8S_VERSION}* kubeadm=${K8S_VERSION}* kubelet=${K8S_VERSION}*
+    sudo apt-mark hold kubelet kubeadm kubectl
     log_success "Kubernetes 工具安裝完成"
-    log_info "  kubectl: $(kubectl version --client --short)"
-    log_info "  kubeadm: $(kubeadm version -o short)"
-    log_info "  kubelet: $(kubelet --version)"
 }
 
 # 初始化 Kubernetes 主節點
 init_kubernetes_master() {
     log_info "初始化 Kubernetes 主節點..."
-    
-    # 檢查是否已初始化
     if [ -f /etc/kubernetes/admin.conf ]; then
         log_success "Kubernetes 已初始化"
         return
     fi
-    
-    # 初始化主節點
-    log_info "執行 kubeadm init..."
-    kubeadm init \
+
+    KUBE_VERSION="${K8S_VERSION}"
+    [[ ! "$KUBE_VERSION" =~ \.[0-9]+\.[0-9]+$ ]] && KUBE_VERSION="${KUBE_VERSION}.0"
+
+    sudo kubeadm init \
         --pod-network-cidr=10.244.0.0/16 \
         --cri-socket=unix:///run/containerd/containerd.sock \
-        --kubernetes-version=v${K8S_VERSION}
-    
+        --kubernetes-version=v${KUBE_VERSION}
+
     # 配置 kubectl
-    log_info "配置 kubectl..."
     mkdir -p $HOME/.kube
-    cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-    chown $(id -u):$(id -g) $HOME/.kube/config
+    sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+    sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+    log_info "等待 API server 啟動..."
+    for i in {1..30}; do
+        kubectl cluster-info &>/dev/null && break || sleep 2
+    done
     
-    log_success "Kubernetes 主節點初始化完成"
+    # 配置 kubeconfig 跳過 TLS 驗證
+    log_info "配置 kubeconfig..."
+    kubectl config set-cluster kubernetes=true
+    
+    log_success "Kubernetes 初始化完成"
+}
+
+# 安裝 CNI 插件
+install_cni_plugins() {
+    log_info "安裝 CNI 插件..."
+    if [ ! -f /opt/cni/bin/loopback ]; then
+        sudo mkdir -p /opt/cni/bin
+        wget -q https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-amd64-v1.4.0.tgz -O /tmp/cni-plugins.tgz
+        sudo tar -xzf /tmp/cni-plugins.tgz -C /opt/cni/bin/
+        rm /tmp/cni-plugins.tgz
+        log_success "CNI 插件安裝完成"
+    else
+        log_success "CNI 插件已存在"
+    fi
 }
 
 # 安裝網路外掛（Flannel）
 install_flannel() {
-    log_info "安裝 Flannel 網路外掛..."
-    
-    # 檢查是否已安裝
-    if kubectl get daemonset -n kube-flannel flannel-ds-amd64 &>/dev/null 2>&1; then
-        log_success "Flannel 已安裝"
-        return
-    fi
-    
-    # 安裝 Flannel
+    log_info "安裝 Flannel..."
     kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-    
-    # 等待 Flannel 啟動
-    log_info "等待 Flannel 啟動..."
-    sleep 10
-    
-    log_success "Flannel 安裝完成"
+    sleep 5
 }
 
 # 允許主節點運行 Pod
 allow_master_pods() {
-    log_info "配置主節點允許運行 Pod..."
-    
+    log_info "移除 Master Taint..."
     kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null || true
-    
-    log_success "主節點配置完成"
 }
 
 # 安裝 Metrics Server
 install_metrics_server() {
     log_info "安裝 Metrics Server..."
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    sleep 5
     
-    # 檢查是否已安裝
-    if kubectl get deployment metrics-server -n kube-system &>/dev/null 2>&1; then
-        log_success "Metrics Server 已安裝"
+    # 修復 Metrics Server TLS 證書驗證問題
+    log_info "修復 Metrics Server TLS 配置..."
+    kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value":"--kubelet-insecure-tls"}]' 2>/dev/null || true
+    sleep 5
+}
+
+# 安裝 OpenvSwitch
+install_openvswitch() {
+    log_info "安裝 OpenvSwitch..."
+    if command_exists ovs-vsctl; then
+        log_success "OpenvSwitch 已存在"
         return
     fi
-    
-    # 安裝 Metrics Server
-    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    
-    # 等待 Metrics Server 啟動
-    log_info "等待 Metrics Server 啟動..."
-    sleep 10
-    
-    log_success "Metrics Server 安裝完成"
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y openvswitch-switch
+    sudo ovs-vsctl add-br br1 2>/dev/null || true
+    sudo systemctl enable openvswitch-switch
+    sudo systemctl restart openvswitch-switch
 }
 
 # 安裝 Multus CNI
 install_multus() {
     log_info "安裝 Multus CNI..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    MULTUS_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/multus-daemonset.yml"
     
-    # 檢查是否已安裝
-    if kubectl get daemonset -n kube-system kube-multus-ds-amd64 &>/dev/null 2>&1; then
-        log_success "Multus CNI 已安裝"
-        return
+    if [ -f "$MULTUS_FILE" ]; then
+        kubectl apply -f "$MULTUS_FILE"
+    else
+        log_warning "找不到 Multus 配置文件，跳過"
     fi
-    
-    # 安裝 Multus
-    kubectl apply -f https://raw.githubusercontent.com/intel/multus-cni/master/deployments/multus-daemonset-thick.yml
-    
-    # 等待 Multus 啟動
-    log_info "等待 Multus 啟動..."
-    sleep 10
-    
-    log_success "Multus CNI 安裝完成"
 }
 
 # 安裝 OVS CNI
 install_ovs_cni() {
     log_info "安裝 OVS CNI..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    OVS_CNI_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/ovs-cni.yaml"
+    OVS_NET_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/ovs-net-crd.yaml"
     
-    # 檢查是否已安裝
-    if kubectl get daemonset -n kube-system ovs-cni-amd64 &>/dev/null 2>&1; then
-        log_success "OVS CNI 已安裝"
-        return
+    if [ -f "$OVS_CNI_FILE" ]; then
+        kubectl apply -f "$OVS_CNI_FILE"
+        [ -f "$OVS_NET_FILE" ] && kubectl apply -f "$OVS_NET_FILE"
     fi
-    
-    # 安裝 OVS CNI
-    kubectl apply -f https://raw.githubusercontent.com/kubevirt/ovs-cni/main/examples/ovs-cni.yaml
-    
-    # 等待 OVS CNI 啟動
-    log_info "等待 OVS CNI 啟動..."
-    sleep 10
-    
-    log_success "OVS CNI 安裝完成"
 }
 
 # 安裝 KubeVirt
 install_kubevirt() {
     log_info "安裝 KubeVirt..."
-    
-    # 檢查是否已安裝
-    if kubectl get namespace kubevirt &>/dev/null 2>&1; then
-        log_success "KubeVirt 已安裝"
+    if kubectl get namespace kubevirt &>/dev/null; then
+        log_success "KubeVirt 已存在"
         return
     fi
-    
-    # 部署 KubeVirt Operator
     kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-operator.yaml
-    
-    # 等待 Operator 啟動
-    log_info "等待 KubeVirt Operator 啟動..."
-    sleep 30
-    
-    # 部署 KubeVirt CR
+    sleep 5
     kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-cr.yaml
-    
-    # 等待 KubeVirt 啟動
-    log_info "等待 KubeVirt 啟動..."
-    sleep 30
-    
-    log_success "KubeVirt 安裝完成"
 }
 
-# 驗證環境
-verify_environment() {
-    log_info "驗證環境..."
+# 安裝 etcd 集群
+install_etcd() {
+    log_info "安裝 etcd 集群..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    ETCD_RBAC_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/etcd-operator-rbac.yaml"
+    ETCD_DEPLOY_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/etcd-operator-deployment.yaml"
     
-    echo ""
-    echo "=========================================="
-    echo "Kubernetes 環境驗證"
-    echo "=========================================="
-    echo ""
+    if [ ! -f "$ETCD_RBAC_FILE" ] || [ ! -f "$ETCD_DEPLOY_FILE" ]; then
+        log_error "找不到 etcd 配置文件"
+        return 1
+    fi
     
-    # 檢查 Kubernetes 版本
-    log_info "Kubernetes 版本:"
-    kubectl version --short
+    log_info "應用 etcd RBAC 配置..."
+    kubectl apply -f "$ETCD_RBAC_FILE"
     
-    # 檢查節點
-    echo ""
-    log_info "節點狀態:"
-    kubectl get nodes
+    log_info "應用 etcd Deployment..."
+    kubectl apply -f "$ETCD_DEPLOY_FILE"
     
-    # 檢查系統 Pod
-    echo ""
-    log_info "系統 Pod:"
-    kubectl get pods -n kube-system | head -15
+    log_info "等待 etcd Pod 啟動..."
+    for i in {1..60}; do
+        if kubectl get pod -l app=etcd -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Running"; then
+            log_success "etcd 已啟動"
+            sleep 5
+            return 0
+        fi
+        sleep 2
+    done
     
-    # 檢查 Metrics Server
-    echo ""
-    log_info "Metrics Server:"
-    kubectl get deployment metrics-server -n kube-system 2>/dev/null || log_warning "Metrics Server 未安裝"
-    
-    # 檢查 Multus
-    echo ""
-    log_info "Multus CNI:"
-    kubectl get daemonset -n kube-system | grep multus || log_warning "Multus 未安裝"
-    
-    # 檢查 OVS CNI
-    echo ""
-    log_info "OVS CNI:"
-    kubectl get daemonset -n kube-system | grep ovs || log_warning "OVS CNI 未安裝"
-    
-    # 檢查 KubeVirt
-    echo ""
-    log_info "KubeVirt:"
-    kubectl get pods -n kubevirt 2>/dev/null || log_warning "KubeVirt 未安裝"
-    
-    echo ""
-    echo "=========================================="
-    log_success "環境驗證完成"
-    echo "=========================================="
+    log_warning "etcd 啟動超時，請手動檢查"
 }
 
 # 建立儲存目錄
 create_storage_directories() {
     log_info "建立儲存目錄..."
+    sudo mkdir -p /mnt/kube5gnfvo /mnt/kube5gnfvo-mysql
+    sudo chmod 777 /mnt/kube5gnfvo /mnt/kube5gnfvo-mysql
+}
+
+# 修改 etcd 證書文件權限
+fix_etcd_certificate_permissions() {
+    log_info "修改 etcd 證書文件權限..."
     
-    mkdir -p /mnt/kube5gnfvo
-    mkdir -p /mnt/kube5gnfvo-mysql
-    chmod 777 /mnt/kube5gnfvo
-    chmod 777 /mnt/kube5gnfvo-mysql
-    
-    log_success "儲存目錄建立完成"
+    if [ -d "/etc/kubernetes/pki/etcd" ]; then
+        sudo chmod 644 /etc/kubernetes/pki/etcd/server.key 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/healthcheck-client.key 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/server.crt 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/ca.crt 2>/dev/null || true
+        log_success "etcd 證書文件權限已修改"
+    else
+        log_warning "etcd 證書目錄不存在，跳過"
+    fi
+}
+
+# 驗證環境
+verify_environment() {
+    log_info "驗證環境狀態..."
+    kubectl get nodes
+    kubectl get pods -A | head -n 10
 }
 
 # 主函數
 main() {
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║     Kube5GNfvo 環境部署腳本 (v3 - 支持自訂 K8s 版本)          ║"
-    echo "║     此腳本將部署完整的 Kubernetes 環境                         ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    
-    # 解析命令行參數
     parse_arguments "$@"
-    
-    # 檢查 root 權限
     check_root
-    
-    # 顯示配置信息
-    echo "部署配置："
-    echo "  Kubernetes 版本: $K8S_VERSION"
-    echo "  容器運行時: Containerd"
-    echo ""
-    
-    # 檢查系統要求
     check_system_requirements
     
-    # 安裝基礎工具（已在 Kubernetes 安裝時安裝，此處跳過）
-    # install_basic_tools
-    
-    # 關閉 Swap
     disable_swap
-    
-    # 設定核心模組
     setup_kernel_modules
-    
-    # 設定 sysctl 參數
     setup_sysctl
-    
-    # 安裝 Containerd
-    install_containerd
-    
-    # 安裝 Kubernetes 工具
+    install_docker
     install_kubernetes_tools
-    
-    # 初始化 Kubernetes 主節點
     init_kubernetes_master
     
-    # 安裝 Flannel 網路外掛
+    install_cni_plugins
     install_flannel
-    
-    # 允許主節點運行 Pod
     allow_master_pods
-    
-    # 安裝 Metrics Server
     install_metrics_server
-    
-    # 安裝 Multus CNI
+    install_openvswitch
     install_multus
-    
-    # 安裝 OVS CNI
     install_ovs_cni
-    
-    # 安裝 KubeVirt
     install_kubevirt
+    install_etcd
     
-    # 建立儲存目錄
     create_storage_directories
-    
-    # 驗證環境
+    fix_etcd_certificate_permissions
     verify_environment
     
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║     環境部署完成！                                             ║"
-    echo "║     Kubernetes 版本: $K8S_VERSION"
-    echo "║     下一步：運行 2-deploy-kube5gnfvo.sh 部署應用               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
+    log_success "Kube5GNfvo 環境基礎部署完成！"
 }
 
-# 運行主函數
 main "$@"

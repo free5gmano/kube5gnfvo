@@ -27,6 +27,8 @@ def walk_file(path, key):
     for root, dirs, files in os.walk(path):
         if key in root:
             return root, dirs, files
+    # 如果找不到，返回 None，調用者需要檢查
+    return None
 
 
 def copy_file(src_path, dst_path, key):
@@ -51,12 +53,15 @@ def create_dir(path):
 
 
 def decompress_zip(zip_file, dir_path):
+    # 確保目錄存在
+    os.makedirs(dir_path, exist_ok=True)
+    
     with zipfile.ZipFile(zip_file, "r") as zf:
         for file in zf.namelist():
             zf.extract(file, dir_path)
-        zf.close()
-    return dir_path + zf.filename.split(".")[0] + '/' \
-        if zf.filename in '/' else dir_path + os.path.basename(zf.filename).split('.')[0] + '/'
+    
+    # 返回解壓後的目錄路徑（包含 Definitions 等子目錄）
+    return dir_path
 
 
 def read_yaml_file(file_path):

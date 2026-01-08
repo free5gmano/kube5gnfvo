@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import json
+import uuid
 
 from rest_framework import viewsets, status
 from rest_framework.exceptions import APIException

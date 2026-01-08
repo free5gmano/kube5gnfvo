@@ -25,14 +25,22 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+import pymysql
+from pathlib import Path
+
+# 配置 PyMySQL 作為 MySQL 驅動
+pymysql.install_as_MySQLdb()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NFS_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
 VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_volume/'
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
-DATABASE_HOST = os.getenv('DATABASE_HOST', '127.0.0.1')
-DATABASE_PORT = os.getenv('DATABASE_PORT', '3306')
+DATABASE_HOST = os.getenv('DATABASE_HOST', 'localhost')
+DATABASE_PORT = os.getenv('DATABASE_PORT', '30306')
+DATABASE_NAME = os.getenv('DATABASE_NAME', 'kube5gnfvo')
+DATABASE_USER = os.getenv('DATABASE_USER', 'root')
+KUBECONFIG = os.getenv('KUBECONFIG', os.path.expanduser('~/.kube/config'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
@@ -44,6 +52,9 @@ SECRET_KEY = 'ph!k8r8tp2lp@+*inl5i9qlk+72%n#i3t73wyo-$!h@t&!saav'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+
+# 禁用自動添加末尾斜杠，以支持 REST API
+APPEND_SLASH = False
 
 # Application definition
 
@@ -69,8 +80,14 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    # 'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler'
-    'EXCEPTION_HANDLER': 'utils.custom_exception_handler.custom_exception_handler'
+    'EXCEPTION_HANDLER': 'utils.custom_exception_handler.custom_exception_handler',
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
 }
 
 MIDDLEWARE = [
@@ -108,11 +125,11 @@ WSGI_APPLICATION = 'os_ma_nfvo.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DATABASE_NAME', 'os_ma_nfvo'),
-        'USER': os.getenv('DATABASE_USER', 'root'),
+        'NAME': DATABASE_NAME,
+        'USER': DATABASE_USER,
         'PASSWORD': DATABASE_PASSWORD,
         'HOST': DATABASE_HOST,
-        'PORT': DATABASE_PORT,
+        'PORT': int(DATABASE_PORT),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

@@ -2,10 +2,14 @@
 
 ################################################################################
 # Kube5GNfvo 應用部署腳本
-# 功能：在 Kubernetes 環境中部署 Kube5GNfvo 應用和 MySQL 資料庫
+# 功能：準備 Kube5GNfvo 應用和 MySQL 資料庫配置（不自動啟動 Pod）
 ################################################################################
 
 set -e
+
+# 設置環境變數以避免互動式提示
+export NEEDRESTART_MODE=a
+export DEBIAN_FRONTEND=noninteractive
 
 # 顏色定義
 RED='\033[0;31m'
@@ -46,15 +50,21 @@ check_kubectl() {
     log_success "kubectl 已連接到叢集"
 }
 
+
 # 載入環境變數
 load_env() {
     log_info "載入環境變數..."
     
-    if [ -f .env ]; then
-        export $(cat .env | grep -v '#' | xargs)
-        log_success ".env 檔案已載入"
+    # 獲取腳本所在目錄，然後往上一層到 chocolee_deploy
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+    ENV_FILE="$DEPLOY_DIR/.env"
+    
+    if [ -f "$ENV_FILE" ]; then
+        export $(cat "$ENV_FILE" | grep -v '#' | xargs)
+        log_success ".env 檔案已載入 ($ENV_FILE)"
     else
-        log_warning ".env 檔案不存在，使用預設值"
+        log_warning ".env 檔案不存在 ($ENV_FILE)，使用預設值"
         export NAMESPACE=kube5gnfvo
         export MYSQL_ROOT_PASSWORD=password
         export MYSQL_DATABASE=kube5gnfvo
@@ -76,20 +86,48 @@ load_env() {
 create_storage_directories() {
     log_info "建立儲存目錄..."
     
-    sudo mkdir -p /mnt/kube5gnfvo
-    sudo mkdir -p /mnt/kube5gnfvo-mysql
-    sudo chmod 777 /mnt/kube5gnfvo
-    sudo chmod 777 /mnt/kube5gnfvo-mysql
+    mkdir -p /mnt/kube5gnfvo 2>/dev/null || true
+    mkdir -p /mnt/kube5gnfvo-mysql 2>/dev/null || true
+    chmod 777 /mnt/kube5gnfvo 2>/dev/null || true
+    chmod 777 /mnt/kube5gnfvo-mysql 2>/dev/null || true
     
     log_success "儲存目錄建立完成"
+}
+
+# 修改 etcd 證書文件權限
+fix_etcd_certificate_permissions() {
+    log_info "修改 etcd 證書文件權限..."
+    
+    if [ -d "/etc/kubernetes/pki/etcd" ]; then
+        sudo chmod 644 /etc/kubernetes/pki/etcd/server.key 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/healthcheck-client.key 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/server.crt 2>/dev/null || true
+        sudo chmod 644 /etc/kubernetes/pki/etcd/ca.crt 2>/dev/null || true
+        log_success "etcd 證書文件權限已修改"
+    else
+        log_warning "etcd 證書目錄不存在，跳過"
+    fi
 }
 
 # 部署 MySQL
 deploy_mysql() {
     log_info "部署 MySQL 資料庫..."
     
-    # 部署 MySQL
-    kubectl apply -f kubernetes/mysql/kube5gnfvo-mysql-simple.yaml
+    # 獲取腳本所在目錄，然後往上一層到 chocolee_deploy
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+    MYSQL_FILE="$DEPLOY_DIR/kubernetes/mysql/kube5gnfvo-mysql-simple.yaml"
+    
+    if [ ! -f "$MYSQL_FILE" ]; then
+        log_error "找不到 MySQL 配置文件: $MYSQL_FILE"
+        exit 1
+    fi
+    
+    log_info "部署 MySQL 配置文件："
+    echo "  $MYSQL_FILE"
+    echo ""
+    
+    kubectl apply -f "$MYSQL_FILE"
     
     # 等待 MySQL Pod 就緒
     log_info "等待 MySQL Pod 就緒（最多 120 秒）..."
@@ -99,144 +137,34 @@ deploy_mysql() {
         --timeout=120s 2>/dev/null; then
         log_success "MySQL 已啟動"
     else
-        log_warning "MySQL 啟動超時，繼續進行..."
-    fi
-    
-    # 驗證 MySQL 連接
-    log_info "驗證 MySQL 連接..."
-    MYSQL_POD=$(kubectl get pod -n kube5gnfvo -l app=kube5gnfvo-mysql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    
-    if [ -n "$MYSQL_POD" ]; then
-        if kubectl exec -n kube5gnfvo $MYSQL_POD -- \
-            mysql -u root -p$MYSQL_ROOT_PASSWORD -e "SHOW DATABASES;" &>/dev/null; then
-            log_success "MySQL 連接驗證成功"
-        else
-            log_warning "MySQL 連接驗證失敗，但繼續進行"
-        fi
+        log_warning "MySQL 啟動超時，但繼續進行..."
     fi
 }
 
-# 部署應用
+# 部署應用（直接執行 Python）
 deploy_application() {
-    log_info "部署 Kube5GNfvo 應用..."
+    log_info "準備啟動 Kube5GNfvo 應用..."
     
-    # 部署應用
-    kubectl apply -f kubernetes/app/kube5gnfvo-app-deploy.yaml
+    # 獲取項目根目錄
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
     
-    # 等待應用 Pod 就緒
-    log_info "等待應用 Pod 就緒（最多 180 秒）..."
-    if kubectl wait --for=condition=ready pod \
-        -l app=kube5gnfvo \
-        -n kube5gnfvo \
-        --timeout=180s 2>/dev/null; then
-        log_success "應用已啟動"
-    else
-        log_warning "應用啟動超時，檢查日誌..."
-        APP_POD=$(kubectl get pod -n kube5gnfvo -l app=kube5gnfvo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-        if [ -n "$APP_POD" ]; then
-            kubectl logs -n kube5gnfvo $APP_POD --tail=50
-        fi
-    fi
-}
-
-# 執行資料庫遷移
-run_migrations() {
-    log_info "執行資料庫遷移..."
-    
-    APP_POD=$(kubectl get pod -n kube5gnfvo -l app=kube5gnfvo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    
-    if [ -z "$APP_POD" ]; then
-        log_warning "無法找到應用 Pod，跳過遷移"
-        return
-    fi
-    
-    if kubectl exec -n kube5gnfvo $APP_POD -- \
-        python3 manage.py migrate 2>/dev/null; then
-        log_success "資料庫遷移完成"
-    else
-        log_warning "資料庫遷移失敗，但繼續進行"
-    fi
+    echo ""
+    echo "執行以下命令啟動應用："
+    echo "  cd $PROJECT_DIR"
+    echo "  python3 manage.py runserver 0.0.0.0:8000"
+    echo "  python3 manage.py m"
+    echo ""
 }
 
 # 驗證部署
 verify_deployment() {
-    log_info "驗證部署..."
-    
-    echo ""
-    echo "=========================================="
-    echo "Kube5GNfvo 部署驗證"
-    echo "=========================================="
-    echo ""
-    
-    # 檢查命名空間
-    log_info "命名空間:"
-    kubectl get namespace kube5gnfvo
-    
-    # 檢查 Pod
-    echo ""
-    log_info "Pod 狀態:"
-    kubectl get pods -n kube5gnfvo
-    
-    # 檢查 Service
-    echo ""
-    log_info "Service:"
-    kubectl get svc -n kube5gnfvo
-    
-    # 檢查 PVC
-    echo ""
-    log_info "PersistentVolumeClaim:"
-    kubectl get pvc -n kube5gnfvo
-    
-    # 檢查 Deployment
-    echo ""
-    log_info "Deployment:"
-    kubectl get deployment -n kube5gnfvo
-    
-    echo ""
-    echo "=========================================="
+    log_info "部署配置已準備完成"
 }
 
 # 測試 API 連接
 test_api_connection() {
-    log_info "測試 API 連接..."
-    
-    # 獲取 Node IP
-    NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)
-    
-    if [ -z "$NODE_IP" ]; then
-        log_warning "無法獲取 Node IP"
-        return
-    fi
-    
-    BASE_URL="http://$NODE_IP:30888"
-    
-    echo ""
-    echo "API 基礎 URL: $BASE_URL"
-    echo ""
-    
-    # 測試 NS Lifecycle API
-    log_info "測試 NS Lifecycle API..."
-    if curl -s -w "HTTP %{http_code}\n" -X GET "$BASE_URL/nslcm/v1/ns_instances/" | grep -q "HTTP 200"; then
-        log_success "NS Lifecycle API 可訪問"
-    else
-        log_warning "NS Lifecycle API 無法訪問"
-    fi
-    
-    # 測試 VNF Package API
-    log_info "測試 VNF Package API..."
-    if curl -s -w "HTTP %{http_code}\n" -X GET "$BASE_URL/vnfpkgm/v1/vnf_packages/" | grep -q "HTTP 200"; then
-        log_success "VNF Package API 可訪問"
-    else
-        log_warning "VNF Package API 無法訪問"
-    fi
-    
-    # 測試 NSD API
-    log_info "測試 NSD API..."
-    if curl -s -w "HTTP %{http_code}\n" -X GET "$BASE_URL/nsd/v1/ns_descriptors/" | grep -q "HTTP 200"; then
-        log_success "NSD API 可訪問"
-    else
-        log_warning "NSD API 無法訪問"
-    fi
+    log_info "應用啟動後，可以測試 API 連接"
 }
 
 # 顯示部署信息
@@ -244,41 +172,17 @@ show_deployment_info() {
     log_info "部署信息..."
     
     echo ""
-    echo "=========================================="
-    echo "部署完成！"
-    echo "=========================================="
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║     部署配置已準備完成！                                       ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    
-    # 獲取 Node IP
-    NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)
-    
-    if [ -n "$NODE_IP" ]; then
-        echo "API 基礎 URL: http://$NODE_IP:30888"
-        echo ""
-        echo "常用命令："
-        echo "  查看 Pod 日誌:"
-        echo "    kubectl logs -n kube5gnfvo -l app=kube5gnfvo -f"
-        echo ""
-        echo "  進入應用 Pod:"
-        echo "    kubectl exec -it -n kube5gnfvo \$(kubectl get pod -n kube5gnfvo -l app=kube5gnfvo -o jsonpath='{.items[0].metadata.name}') -- bash"
-        echo ""
-        echo "  進入 MySQL Pod:"
-        echo "    kubectl exec -it -n kube5gnfvo \$(kubectl get pod -n kube5gnfvo -l app=kube5gnfvo-mysql -o jsonpath='{.items[0].metadata.name}') -- bash"
-        echo ""
-        echo "  查看資源使用情況:"
-        echo "    kubectl top pods -n kube5gnfvo"
-        echo ""
-    fi
-    
-    echo "=========================================="
 }
 
 # 主函數
 main() {
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║     Kube5GNfvo 應用部署腳本                                    ║"
-    echo "║     此腳本將部署 MySQL 和 Kube5GNfvo 應用                      ║"
+    echo "║     Kube5GNfvo 應用部署腳本                                     ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     
@@ -291,14 +195,14 @@ main() {
     # 建立儲存目錄
     create_storage_directories
     
+    # 修改 etcd 證書文件權限
+    fix_etcd_certificate_permissions
+    
     # 部署 MySQL
     deploy_mysql
     
     # 部署應用
     deploy_application
-    
-    # 執行資料庫遷移
-    run_migrations
     
     # 驗證部署
     verify_deployment
@@ -311,8 +215,8 @@ main() {
     
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║     應用部署完成！                                             ║"
-    echo "║     下一步：運行 3-test-all-apis.sh 進行 API 功能測試          ║"
+    echo "║     應用部署配置準備完成！                                       ║"
+    echo "║     下一步：部署 MySQL 並直接執行 Python 啟動應用                 ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 }

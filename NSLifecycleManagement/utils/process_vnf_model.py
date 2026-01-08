@@ -23,10 +23,20 @@ def get_vnf_instance(vnf_pkg_ids) -> list:
     vnf_instances = list()
     for vnf_pkg_id in vnf_pkg_ids:
         vnf_package_info = VnfPkgInfo.objects.filter(id=vnf_pkg_id).last()
+        if vnf_package_info is None:
+            print(f"[ERROR] VNF Package not found: {vnf_pkg_id}")
+            raise ValueError(f"VNF Package not found: {vnf_pkg_id}")
+        
         vnfd_id = vnf_package_info.vnfdId.lower()
         vnf_instance_name = '{}-{}'.format(vnfd_id, random_string())
-        process_vnf_instance = ProcessVNFInstance(vnf_pkg_id, vnf_instance_name=vnf_instance_name)
-        ext_cp_info = process_vnf_instance.process_template()
+        
+        try:
+            process_vnf_instance = ProcessVNFInstance(vnf_pkg_id, vnf_instance_name=vnf_instance_name)
+            ext_cp_info = process_vnf_instance.process_template()
+        except Exception as e:
+            print(f"[ERROR] Failed to process VNF template for {vnf_pkg_id}: {str(e)}")
+            raise
+        
         vnf_instances.append({'vnfdId': vnf_package_info.vnfdId,
                               'vnfInstanceName': vnf_instance_name,
                               'vnfProvider': vnf_package_info.vnfProvider,

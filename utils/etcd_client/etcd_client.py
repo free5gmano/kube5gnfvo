@@ -19,12 +19,26 @@ import etcd3
 
 class EtcdClient(object):
     def __init__(self, **kwargs):
-        self.etcd_domain = 'dual-network-nic-etcd-cluster-client.default.svc.cluster.local'
-        self.etcd_port = 2379
+        # 如果在 Kubernetes 集群內，使用 Service DNS
+        # 如果在主機上運行，使用 localhost:32379 (NodePort)
+        self.etcd_domain = 'localhost'
+        self.etcd_port = 32379
         self.ip_pool = '192.168.{}.{}'
         self.instance_name = None
         self.pod_name = None
-        self.client = etcd3.client(host=self.etcd_domain, port=self.etcd_port)
+        try:
+            self.client = etcd3.client(
+                host=self.etcd_domain,
+                port=self.etcd_port,
+                timeout=10,
+                grpc_options=[
+                    ('grpc.max_receive_message_length', -1),
+                    ('grpc.max_send_message_length', -1),
+                ]
+            )
+        except Exception as e:
+            print(f"Failed to connect to etcd at {self.etcd_domain}:{self.etcd_port}: {e}")
+            raise
 
     def set_deploy_name(self, instance_name=None, pod_name=None):
         self.instance_name = instance_name
