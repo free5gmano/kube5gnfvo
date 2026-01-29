@@ -1,0 +1,54 @@
+# ============================================
+# Free5GC Network Service Descriptor (NSD)
+# ============================================
+# 這是 5G 核心網的網路服務描述檔
+# 定義了整個 5G Core Network 的組成元件
+
+tosca_definitions_version: tosca_simple_yaml_1_2
+
+topology_template:
+  node_templates:
+    NS1:
+      type: tosca.nodes.nfv.NS
+      properties:
+        # ========== 基本資訊 ==========
+        descriptor_id: 1b4dd4c7-1dd2-11b2-8000-080027b246c3  # NSD 的唯一識別碼
+        designer: imac                                        # 設計者名稱
+        version: 1.0                                          # 版本號
+        name: free5gc-stage3.2.1-amd64                       # NSD 名稱
+        invariant_id: 1111-2222-aaaa-bbbb                    # 不變的識別碼（跨版本）
+        
+        # ========== 組成的 VNF 列表 ==========
+        # 這裡列出所有組成此網路服務的 VNF
+        constituent_vnfd:
+          # --- 控制面 (Control Plane) ---
+          - vnfd_id: 367f45fd-1dd2-11b2-8001-080027b24amf   # AMF: Access and Mobility Management Function (接入與移動性管理)
+          - vnfd_id: 367f45fd-1dd2-11b2-8001-080027b2ausf   # AUSF: Authentication Server Function (認證伺服器)
+          - vnfd_id: 367f45fd-1dd2-11b2-8001-080027b24nrf   # NRF: Network Repository Function (網路儲存庫)
+          - vnfd_id: 367f45fd-1dd2-11b2-8001-080027b2nssf   # NSSF: Network Slice Selection Function (網路切片選擇)
+          - vnfd_id: 367f45fd-1dd2-11b2-8001-080027b24pcf   # PCF: Policy Control Function (策略控制)
+          - vnfd_id: 367f45fd-1dd2-11b2-8008-080027b24smf   # SMF: Session Management Function (會話管理)
+          - vnfd_id: 367f45fd-1dd2-11b2-8006-080027b24udm   # UDM: Unified Data Management (統一數據管理)
+          - vnfd_id: 367f45fd-1dd2-11b2-8004-080027b24udr   # UDR: Unified Data Repository (統一數據儲存庫)
+          
+          # --- 用戶面 (User Plane) ---
+          - vnfd_id: 367f45fd-1dd2-11b2-8002-080027b24upf   # UPF: User Plane Function (用戶面功能)
+          
+          # --- 資料庫 (Database) ---
+          - vnfd_id: 367f45fd-1dd2-11b2-8000-08002mongodb    # MongoDB: 用於儲存用戶資料和配置
+
+# ============================================
+# VNF 名稱對照表（僅供參考，不會被程式讀取）
+# ============================================
+# VNF 列表:
+#   1. amf     - Access and Mobility Management Function
+#   2. ausf    - Authentication Server Function
+#   3. nrf     - Network Repository Function
+#   4. nssf    - Network Slice Selection Function
+#   5. pcf     - Policy Control Function
+#   6. smf     - Session Management Function
+#   7. udm     - Unified Data Management
+#   8. udr     - Unified Data Repository
+#   9. upf     - User Plane Function
+#   10. mongodb - Database
+# ============================================

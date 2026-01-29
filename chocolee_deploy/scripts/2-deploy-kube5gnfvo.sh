@@ -153,7 +153,8 @@ deploy_application() {
     echo "執行以下命令啟動應用："
     echo "  cd $PROJECT_DIR"
     echo "  python3 manage.py runserver 0.0.0.0:8000"
-    echo "  python3 manage.py m"
+    echo "  第一次時請先轉移資料庫"
+    echo "  python3 manage.py migrate"
     echo ""
 }
 

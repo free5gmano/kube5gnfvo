@@ -19,7 +19,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 預設 Kubernetes 版本
-K8S_VERSION="${K8S_VERSION:-1.32.0}"
+K8S_VERSION="${K8S_VERSION:-1.32}"
 
 # 日誌函數
 log_info() {
@@ -57,10 +57,10 @@ show_usage() {
     echo "使用方法: bash $0 [選項]"
     echo ""
     echo "選項:"
-    echo "  --k8s-version VERSION    指定 Kubernetes 版本（預設: 1.32.0）"
+    echo "  --k8s-version VERSION    指定 Kubernetes 版本（預設: 1.32）"
     echo "  --help                   顯示此幫助信息"
     echo ""
-    echo "支持的版本: 1.28.0, 1.29.0, 1.30.0, 1.31.0, 1.32.0 等"
+    echo "支持的版本: 1.28, 1.29, 1.30, 1.31, 1.32 等"
 }
 
 # 解析命令行參數
@@ -298,6 +298,27 @@ install_multus() {
     fi
 }
 
+# 安裝 Node Exporter (修復 VIMM API 拿不到硬體數據的問題)
+install_node_exporter() {
+    log_info "安裝 Node Exporter..."
+    # 取得腳本所在的絕對路徑，確保能找到相對目錄下的 yaml 檔案
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # 根據您的目錄結構定位檔案
+    NODE_EXPORTER_FILE="$SCRIPT_DIR/../../chocolee_deploy/kubernetes/node-exporter.yaml"
+
+    if [ -f "$NODE_EXPORTER_FILE" ]; then
+        kubectl apply -f "$NODE_EXPORTER_FILE"
+        log_success "Node Exporter 部署指令已發送"
+
+        # 等待 Pod 啟動並驗證端口
+        log_info "等待 Node Exporter 啟動 (預設 9100 端口)..."
+        sleep 5
+    else
+        log_warning "找不到 node-exporter.yaml (預期路徑: $NODE_EXPORTER_FILE)，跳過此步驟"
+    fi
+}
+
 # 安裝 OVS CNI
 install_ovs_cni() {
     log_info "安裝 OVS CNI..."
@@ -400,6 +421,7 @@ main() {
     install_flannel
     allow_master_pods
     install_metrics_server
+    install_node_exporter
     install_openvswitch
     install_multus
     install_ovs_cni
