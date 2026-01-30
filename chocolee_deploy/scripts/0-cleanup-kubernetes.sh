@@ -194,6 +194,27 @@ cleanup_cni() {
     log_success "CNI 配置已清理"
 }
 
+cleanup_network_interfaces() {
+    log_info "清理殘留的 CNI/OVS 網路介面..."
+
+    # 常見 CNI bridge / flannel / vxlan / ovs
+    ip link del cni0 2>/dev/null || true
+    ip link del flannel.1 2>/dev/null || true
+    ip link del cbr0 2>/dev/null || true
+    ip link del docker0 2>/dev/null || true
+
+    # 常見 calico/weave/cilium 殘留（你不一定有，但清掉不會成功也不會中斷）
+    ip link del weave 2>/dev/null || true
+    ip link del cilium_vxlan 2>/dev/null || true
+
+    # OVS bridge（你腳本有裝 openvswitch，常見會留 br1）
+    ovs-vsctl --if-exists del-br br1 2>/dev/null || true
+    ovs-vsctl --if-exists del-br br-int 2>/dev/null || true
+
+    log_success "網路介面清理完成"
+}
+
+
 # 清理 iptables 規則
 cleanup_iptables() {
     log_info "清理 iptables 規則..."
@@ -328,6 +349,7 @@ main() {
     cleanup_docker_dirs
     cleanup_containerd_dirs
     cleanup_cni
+    cleanup_network_interfaces
     cleanup_iptables
     cleanup_sysctl
     cleanup_apt_repos

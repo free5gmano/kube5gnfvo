@@ -149,12 +149,44 @@ deploy_application() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
     
+    cd "$PROJECT_DIR"
+    
+    # 建立虛擬環境
+    log_info "建立 Python 虛擬環境..."
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv
+        log_success "虛擬環境已建立"
+    else
+        log_success "虛擬環境已存在"
+    fi
+    
+    # 啟用虛擬環境
+    log_info "啟用虛擬環境..."
+    echo "   $PROJECT_DIR"
+    source .venv/bin/activate
+    log_success "虛擬環境已啟用"
+    
+    # 安裝依賴
+    log_info "安裝 Python 依賴..."
+    pip install --upgrade pip
+    if [ -f "requirement.txt" ]; then
+        pip install -r requirement.txt
+        log_success "依賴已安裝"
+    else
+        log_error "找不到 requirement.txt 文件"
+        exit 1
+    fi
+    
+    # 執行資料庫遷移
+    log_info "執行資料庫遷移..."
+    python3 manage.py migrate
+    log_success "資料庫遷移完成"
+    
     echo ""
-    echo "執行以下命令啟動應用："
+    echo "應用準備完成，可以執行以下命令啟動應用："
     echo "  cd $PROJECT_DIR"
+    echo "  source .venv/bin/activate"
     echo "  python3 manage.py runserver 0.0.0.0:8000"
-    echo "  第一次時請先轉移資料庫"
-    echo "  python3 manage.py migrate"
     echo ""
 }
 
