@@ -41,33 +41,50 @@ class ServiceClient(KubernetesApi):
             protocol = 'TCP'
             return [self._create_service_port(protocol, port) for port in self.ports]
         else:
-            i = 0
+            # Handle case where protocol is a string instead of a list
+            protocols = self.protocol if isinstance(self.protocol, list) else [self.protocol]
             service_port = list()
-            for protocol in self.protocol:
-                service_port.append(self._create_service_port(protocol, self.ports[i]))
-                i = i + 1
+            for i, port in enumerate(self.ports):
+                # Use corresponding protocol or default to TCP if not enough protocols
+                protocol = protocols[i] if i < len(protocols) else 'TCP'
+                service_port.append(self._create_service_port(protocol, port))
             return service_port
     def _get_service_node_port(self):
         if self.protocol is None:
             protocol = 'TCP'
-            return [self._create_service_node_port(protocol, port,self.target_port,self.node_port) for port in self.ports]
+            return [self._create_service_node_port(protocol, port, i) for i, port in enumerate(self.ports)]
         else:
-            i = 0
+            # Handle case where protocol is a string instead of a list
+            protocols = self.protocol if isinstance(self.protocol, list) else [self.protocol]
             service_port = list()
-            for protocol in self.protocol:
-                service_port.append(self._create_service_node_port(protocol, self.ports[i],self.target_port,self.node_port))
-                i = i + 1
+            for i, port in enumerate(self.ports):
+                # Use corresponding protocol or default to TCP if not enough protocols
+                protocol = protocols[i] if i < len(protocols) else 'TCP'
+                service_port.append(self._create_service_node_port(protocol, port, i))
             return service_port
-    def _create_service_node_port(self,protocol,port,target_port,node_port):
-        if target_port is None:
+    def _create_service_node_port(self, protocol, port, index):
+        # Validate protocol
+        valid_protocols = ['TCP', 'UDP', 'SCTP']
+        if protocol not in valid_protocols:
+            protocol = 'TCP'  # Default to TCP if invalid
+        
+        # Get the corresponding nodeport from the list
+        node_port_value = self.node_port[index] if isinstance(self.node_port, list) and index < len(self.node_port) else self.node_port
+        target_port_value = self.target_port[index] if isinstance(self.target_port, list) and index < len(self.target_port) else self.target_port
+        
+        if target_port_value is None:
             return self.kubernetes_client.V1ServicePort(
                 name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=protocol,
-                                    node_port=int(node_port))
+                                    node_port=int(node_port_value))
         else:
             return self.kubernetes_client.V1ServicePort(
                 name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=protocol,
-                                    target_port=int(target_port),node_port=int(node_port))
+                                    target_port=int(target_port_value), node_port=int(node_port_value))
 
     def _create_service_port(self, protocol, port):
+        # Validate protocol
+        valid_protocols = ['TCP', 'UDP', 'SCTP']
+        if protocol not in valid_protocols:
+            protocol = 'TCP'  # Default to TCP if invalid
         return self.kubernetes_client.V1ServicePort(
             name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=protocol)

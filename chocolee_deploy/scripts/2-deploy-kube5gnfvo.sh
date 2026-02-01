@@ -41,12 +41,12 @@ check_kubectl() {
         log_error "kubectl 未安裝或不在 PATH 中"
         exit 1
     fi
-    
+
     if ! kubectl cluster-info &>/dev/null; then
         log_error "無法連接到 Kubernetes 叢集"
         exit 1
     fi
-    
+
     log_success "kubectl 已連接到叢集"
 }
 
@@ -54,12 +54,12 @@ check_kubectl() {
 # 載入環境變數
 load_env() {
     log_info "載入環境變數..."
-    
+
     # 獲取腳本所在目錄，然後往上一層到 chocolee_deploy
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
     ENV_FILE="$DEPLOY_DIR/.env"
-    
+
     if [ -f "$ENV_FILE" ]; then
         export $(cat "$ENV_FILE" | grep -v '#' | xargs)
         log_success ".env 檔案已載入 ($ENV_FILE)"
@@ -71,7 +71,7 @@ load_env() {
         export APP_PORT=8000
         export APP_NODE_PORT=30888
     fi
-    
+
     echo ""
     echo "部署配置："
     echo "  命名空間: $NAMESPACE"
@@ -85,19 +85,19 @@ load_env() {
 # 建立儲存目錄
 create_storage_directories() {
     log_info "建立儲存目錄..."
-    
+
     mkdir -p /mnt/kube5gnfvo 2>/dev/null || true
     mkdir -p /mnt/kube5gnfvo-mysql 2>/dev/null || true
     chmod 777 /mnt/kube5gnfvo 2>/dev/null || true
     chmod 777 /mnt/kube5gnfvo-mysql 2>/dev/null || true
-    
+
     log_success "儲存目錄建立完成"
 }
 
 # 修改 etcd 證書文件權限
 fix_etcd_certificate_permissions() {
     log_info "修改 etcd 證書文件權限..."
-    
+
     if [ -d "/etc/kubernetes/pki/etcd" ]; then
         sudo chmod 644 /etc/kubernetes/pki/etcd/server.key 2>/dev/null || true
         sudo chmod 644 /etc/kubernetes/pki/etcd/healthcheck-client.key 2>/dev/null || true
@@ -112,23 +112,23 @@ fix_etcd_certificate_permissions() {
 # 部署 MySQL
 deploy_mysql() {
     log_info "部署 MySQL 資料庫..."
-    
+
     # 獲取腳本所在目錄，然後往上一層到 chocolee_deploy
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
     MYSQL_FILE="$DEPLOY_DIR/kubernetes/mysql/kube5gnfvo-mysql-simple.yaml"
-    
+
     if [ ! -f "$MYSQL_FILE" ]; then
         log_error "找不到 MySQL 配置文件: $MYSQL_FILE"
         exit 1
     fi
-    
+
     log_info "部署 MySQL 配置文件："
     echo "  $MYSQL_FILE"
     echo ""
-    
+
     kubectl apply -f "$MYSQL_FILE"
-    
+
     # 等待 MySQL Pod 就緒
     log_info "等待 MySQL Pod 就緒（最多 120 秒）..."
     if kubectl wait --for=condition=ready pod \
@@ -144,49 +144,17 @@ deploy_mysql() {
 # 部署應用（直接執行 Python）
 deploy_application() {
     log_info "準備啟動 Kube5GNfvo 應用..."
-    
+
     # 獲取項目根目錄
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
-    
-    cd "$PROJECT_DIR"
-    
-    # 建立虛擬環境
-    log_info "建立 Python 虛擬環境..."
-    if [ ! -d ".venv" ]; then
-        python3 -m venv .venv
-        log_success "虛擬環境已建立"
-    else
-        log_success "虛擬環境已存在"
-    fi
-    
-    # 啟用虛擬環境
-    log_info "啟用虛擬環境..."
-    echo "   $PROJECT_DIR"
-    source .venv/bin/activate
-    log_success "虛擬環境已啟用"
-    
-    # 安裝依賴
-    log_info "安裝 Python 依賴..."
-    pip install --upgrade pip
-    if [ -f "requirement.txt" ]; then
-        pip install -r requirement.txt
-        log_success "依賴已安裝"
-    else
-        log_error "找不到 requirement.txt 文件"
-        exit 1
-    fi
-    
-    # 執行資料庫遷移
-    log_info "執行資料庫遷移..."
-    python3 manage.py migrate
-    log_success "資料庫遷移完成"
-    
+
     echo ""
-    echo "應用準備完成，可以執行以下命令啟動應用："
+    echo "執行以下命令啟動應用："
     echo "  cd $PROJECT_DIR"
-    echo "  source .venv/bin/activate"
     echo "  python3 manage.py runserver 0.0.0.0:8000"
+    echo "  第一次時請先轉移資料庫"
+    echo "  python3 manage.py migrate"
     echo ""
 }
 
@@ -203,7 +171,7 @@ test_api_connection() {
 # 顯示部署信息
 show_deployment_info() {
     log_info "部署信息..."
-    
+
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║     部署配置已準備完成！                                       ║"
@@ -218,34 +186,34 @@ main() {
     echo "║     Kube5GNfvo 應用部署腳本                                     ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    
+
     # 檢查 kubectl
     check_kubectl
-    
+
     # 載入環境變數
     load_env
-    
+
     # 建立儲存目錄
     create_storage_directories
-    
+
     # 修改 etcd 證書文件權限
     fix_etcd_certificate_permissions
-    
+
     # 部署 MySQL
     deploy_mysql
-    
+
     # 部署應用
     deploy_application
-    
+
     # 驗證部署
     verify_deployment
-    
+
     # 測試 API 連接
     test_api_connection
-    
+
     # 顯示部署信息
     show_deployment_info
-    
+
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║     應用部署配置準備完成！                                       ║"
