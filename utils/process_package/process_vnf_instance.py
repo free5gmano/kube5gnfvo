@@ -124,6 +124,9 @@ class ProcessVNFInstance(BaseProcess):
             if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
                 self.process_service(vdu=vdu)
 
+            if vdu.attributes['nodeport'] and vdu.attributes['name_of_nodeport']:
+                self.process_nodeport(vdu=vdu)
+
             if vdu.requirements and vdu.requirements['size_of_storage'] and vdu.requirements['path_of_storage']:
                 vdu_info.update(vdu.requirements)
                 self.process_persistent_volume_claim(vdu=vdu)
@@ -188,6 +191,10 @@ class ProcessVNFInstance(BaseProcess):
 
     @abstractmethod
     def process_service(self, **kwargs):
+        pass
+
+    @abstractmethod
+    def process_nodeport(self, **kwargs):
         pass
 
     @abstractmethod

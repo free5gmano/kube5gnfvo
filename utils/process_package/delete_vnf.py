@@ -12,6 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from rest_framework import status
+from rest_framework.exceptions import APIException
+
 from VIMManagement.utils.config_map import ConfigMapClient
 from VIMManagement.utils.deployment import DeploymentClient
 from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscalerClient
@@ -47,6 +50,12 @@ class DeleteService(ProcessVNFInstance):
     def process_service(self, **kwargs):
         client = ServiceClient(
             instance_name=kwargs['vdu'].attributes['name_of_service'],
+            namespace=kwargs['vdu'].attributes['namespace'])
+        client.handle_delete()
+
+    def process_nodeport(self, **kwargs):
+        client = ServiceClient(
+            instance_name=kwargs['vdu'].attributes['name_of_nodeport'],
             namespace=kwargs['vdu'].attributes['namespace'])
         client.handle_delete()
 

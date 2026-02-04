@@ -57,12 +57,15 @@ load_env() {
 
     # 獲取腳本所在目錄，然後往上一層到 chocolee_deploy
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+    DEPLOY_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
     ENV_FILE="$DEPLOY_DIR/.env"
 
-    if [ -f "$ENV_FILE" ]; then
-        export $(cat "$ENV_FILE" | grep -v '#' | xargs)
-        log_success ".env 檔案已載入 ($ENV_FILE)"
+   if [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+    log_success ".env 檔案已載入 ($ENV_FILE)"
     else
         log_warning ".env 檔案不存在 ($ENV_FILE)，使用預設值"
         export NAMESPACE=kube5gnfvo
@@ -140,6 +143,7 @@ deploy_mysql() {
         log_warning "MySQL 啟動超時，但繼續進行..."
     fi
 }
+
 
 # 部署應用（直接執行 Python）
 deploy_application() {

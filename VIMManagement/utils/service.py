@@ -52,12 +52,12 @@ class ServiceClient(KubernetesApi):
     def _get_service_node_port(self):
         if self.protocol is None:
             protocol = 'TCP'
-            return [self._create_service_node_port(protocol, port, i) for i, port in enumerate(self.ports)]
+            return [self._create_service_node_port(protocol, port, i) for i, port in enumerate(self.node_port)]
         else:
             # Handle case where protocol is a string instead of a list
             protocols = self.protocol if isinstance(self.protocol, list) else [self.protocol]
             service_port = list()
-            for i, port in enumerate(self.ports):
+            for i, port in enumerate(self.node_port):
                 # Use corresponding protocol or default to TCP if not enough protocols
                 protocol = protocols[i] if i < len(protocols) else 'TCP'
                 service_port.append(self._create_service_node_port(protocol, port, i))

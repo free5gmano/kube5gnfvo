@@ -12,6 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from rest_framework import status
+from rest_framework.exceptions import APIException
+
 from VIMManagement.utils.config_map import ConfigMapClient
 from VIMManagement.utils.deployment import DeploymentClient
 from VIMManagement.utils.horizontal_pod_autoscaler import HorizontalPodAutoscalerClient
@@ -20,7 +23,7 @@ from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimCli
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from os_ma_nfvo import settings
-from utils.file_manipulation import create_dir
+from utils.file_manipulation import create_dir, mount_dir
 from utils.process_package.process_vnf_instance import ProcessVNFInstance
 
 
@@ -48,7 +51,15 @@ class CreateService(ProcessVNFInstance):
         client = ServiceClient(
             instance_name=vdu.attributes['name_of_service'], namespace=vdu.attributes['namespace'],
             ports=vdu.attributes['ports'], protocol=vdu.attributes['protocol'],
-            service_type='NodePort' if vdu.attributes['is_export_service'] else 'ClusterIP')
+            service_type='ClusterIP')
+        client.handle_create_or_update()
+
+    def process_nodeport(self, **kwargs):
+        vdu = kwargs['vdu']
+        client = ServiceClient(
+            instance_name=vdu.attributes['name_of_nodeport'], namespace=vdu.attributes['namespace'],
+            node_port=vdu.attributes['nodeport'], protocol=vdu.attributes['nodeport_protocol'],
+            target_port=vdu.attributes['targetport'], service_type='NodePort')
         client.handle_create_or_update()
 
     def process_persistent_volume_claim(self, **kwargs):

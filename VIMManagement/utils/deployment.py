@@ -26,9 +26,12 @@ class DeploymentClient(KubernetesApi):
             self.virtual_mem_size = kwargs['virtual_mem_size']
             self.num_virtual_cpu = kwargs['num_virtual_cpu']
         self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
-        if 'ports' in kwargs and 'name_of_service' in kwargs:
+        if kwargs.get('ports') and kwargs.get('name_of_service'):
             self.ports = kwargs['ports']
             self.name_of_service = kwargs['name_of_service']
+        elif kwargs.get('nodeport') and kwargs.get('name_of_nodeport'):
+            self.ports = kwargs['nodeport']
+            self.name_of_service = kwargs['name_of_nodeport']
         self.path_of_storage = kwargs['path_of_storage'] if 'path_of_storage' in kwargs else None
         self.command = kwargs['command'] if 'command' in kwargs else None
         self.env = kwargs['env'] if 'env' in kwargs else None
