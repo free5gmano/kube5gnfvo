@@ -178,7 +178,15 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
                 
                 vnf_pkg_ids_list = list()
                 for vnfd in network_service_descriptor.get_constituent_vnfd():
-                    vnf_pkg_ids_list.append(str(VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd['vnfd_id']).last().id))
+                    vnfd_id = vnfd['vnfd_id']
+                    vnf_pkg = VnfPkgInfo.objects.filter(vnfdId__iexact=vnfd_id).last()
+                    if vnf_pkg is None:
+                        print(f"[NSD 上傳錯誤] 找不到 VNFD ID: {vnfd_id}")
+                        print(f"[NSD 上傳錯誤] 資料庫中現有的 VNF Packages:")
+                        for pkg in VnfPkgInfo.objects.all():
+                            print(f"  - {pkg.vnfdId}")
+                        raise APIException(detail=f'找不到 VNF Package，VNFD ID: {vnfd_id}', code=status.HTTP_404_NOT_FOUND)
+                    vnf_pkg_ids_list.append(str(vnf_pkg.id))
 
                 nsd_content['vnfPkgIds'] = json.dumps(vnf_pkg_ids_list)
                 serializer = self.get_serializer(instance, data=nsd_content)
@@ -187,6 +195,11 @@ class NSDescriptorsViewSet(viewsets.ModelViewSet):
                 self.kafka_notification.notify(kwargs['pk'], 'NSD({}) had been upload'.format(kwargs['pk']))
                 return Response(status=status.HTTP_202_ACCEPTED)
             except Exception as e:
+                import traceback
+                print(f"[NSD 上傳錯誤] NSD ID: {kwargs.get('pk')}")
+                print(f"[NSD 上傳錯誤] 錯誤訊息: {str(e)}")
+                print(f"[NSD 上傳錯誤] 詳細堆棧:")
+                traceback.print_exc()
                 raise APIException(detail=str(e), code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         elif request.method == 'GET':
             if on_boarded != instance.nsdOnboardingState:

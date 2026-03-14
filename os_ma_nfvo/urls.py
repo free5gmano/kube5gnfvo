@@ -132,4 +132,6 @@ urlpatterns = [
     path('', include('VIMManagement.urls')),
     path('', include('NSFaultManagement.urls')),
     path('', include('NSFaultSubscription.urls')),
+    path('', include('GnbManagement.urls')),
+    path('', include('MecAppManagement.urls')),
 ]

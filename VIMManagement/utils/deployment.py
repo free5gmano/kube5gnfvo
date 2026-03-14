@@ -40,6 +40,7 @@ class DeploymentClient(KubernetesApi):
             self.replicas = kwargs['replicas']
         self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
         self.labels = kwargs['labels'] if 'labels' in kwargs and isinstance(kwargs['labels'], dict) else None
+        self.node_name = kwargs['node_name'] if 'node_name' in kwargs else None
         self.sriov_type = 'intel.com/intel_sriov_netdevice'
 
         super().__init__(*args, **kwargs)
@@ -154,7 +155,8 @@ class DeploymentClient(KubernetesApi):
             name=self.instance_name, image=self.image, volume_mounts=volume_mounts, command=self.command,
             env=env, resources=resource, security_context=security_context, ports=container_ports)
         pod_spec = self.kubernetes_client.V1PodSpec(
-            containers=[container], volumes=volumes, init_containers=init_containers)
+            containers=[container], volumes=volumes, init_containers=init_containers,
+            node_name=self.node_name if self.node_name else None)
         return self.kubernetes_client.V1DeploymentSpec(
             replicas=self.replicas,
             selector=self.kubernetes_client.V1LabelSelector(match_labels=deployment_match_label),
@@ -162,8 +164,20 @@ class DeploymentClient(KubernetesApi):
                 spec=pod_spec, metadata=deployment_meta))
 
     def _get_container_port(self, port: int):
+        # Kubernetes port name 規則：
+        # - 不能以連字號開頭或結尾
+        # - 只能包含小寫字母、數字和連字號
+        # - 最多 15 個字符
+        port_name = '{}{}'.format(self.instance_name[-10:], port)
+        # 移除開頭的連字號
+        port_name = port_name.lstrip('-')
+        # 確保長度不超過 15 個字符
+        port_name = port_name[:15]
+        # 移除結尾的連字號
+        port_name = port_name.rstrip('-')
+        
         return self.kubernetes_client.V1ContainerPort(
-            name='{}{}'.format(self.instance_name[-10:], port),
+            name=port_name,
             container_port=port,
             protocol=self.protocol)
 

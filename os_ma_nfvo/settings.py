@@ -76,7 +76,9 @@ INSTALLED_APPS = [
     'NSLCMOperationOccurrences.apps.NslcmoperationoccurrencesConfig',
     'NSFaultManagement.apps.NSFaultManagementConfig',
     'NSFaultSubscription.apps.NSFaultSubscriptionConfig',
-    'VIMManagement.apps.VimmanagementConfig'
+    'VIMManagement.apps.VimmanagementConfig',
+    'GnbManagement.apps.GnbmanagementConfig',
+    'MecAppManagement.apps.MecappmanagementConfig'
 ]
 
 REST_FRAMEWORK = {

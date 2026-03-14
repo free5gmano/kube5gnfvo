@@ -145,20 +145,44 @@ deploy_mysql() {
 }
 
 
-# 部署應用（直接執行 Python）
+# 部署應用（包含建立虛擬環境與安裝依賴）
 deploy_application() {
-    log_info "準備啟動 Kube5GNfvo 應用..."
+    log_info "正在準備 Python 虛擬環境..."
 
     # 獲取項目根目錄
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
+    cd "$PROJECT_DIR"
+
+    # 1. 檢查並建立虛擬環境
+    if [ ! -d ".venv" ]; then
+        log_info "建立虛擬環境 (.venv)..."
+        python3 -m venv .venv
+        log_success "虛擬環境已建立"
+    else
+        log_info "虛擬環境 (.venv) 已存在，跳過建立步驟"
+    fi
+
+    # 2. 升級 pip 並安裝套件
+    log_info "安裝/更新 requirement.txt 中的套件..."
+    if [ -f "requirement.txt" ]; then
+        ./.venv/bin/pip install --upgrade pip
+        ./.venv/bin/pip install -r requirement.txt
+        log_success "套件安裝完成"
+    else
+        log_error "找不到 requirement.txt，無法安裝依賴"
+        exit 1
+    fi
+
     echo ""
-    echo "執行以下命令啟動應用："
+    echo "環境準備就緒！執行以下命令啟動應用："
+    echo "------------------------------------------------"
     echo "  cd $PROJECT_DIR"
-    echo "  python3 manage.py runserver 0.0.0.0:8000"
-    echo "  第一次時請先轉移資料庫"
+    echo "  source .venv/bin/activate"
     echo "  python3 manage.py migrate"
+    echo "  python3 manage.py runserver 0.0.0.0:8000"
+    echo "------------------------------------------------"
     echo ""
 }
 
