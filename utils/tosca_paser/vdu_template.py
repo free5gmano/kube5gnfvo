@@ -23,13 +23,13 @@ class VDUTemplate(EntityTemplate):
     VDU_REQUIREMENTS = (STORAGE_TYPE, STORAGE_SIZE, STORAGE_PATH) = \
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
-                      NAME_OF_SERVICE, IS_EXPORT_SERVICE, PROTOCOL, NAME_OF_NODEPORT, NODEPORT_PROTOCOL,
+                      NAME_OF_SERVICE, IS_EXPORT_SERVICE, NAME_OF_NODEPORT,
                       NODE_NAME) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
-         'name_of_service', 'is_export_service', 'protocol', 'name_of_nodeport', "nodeport_protocol",
+         'name_of_service', 'is_export_service', 'name_of_nodeport',
          'node_name')
     VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
-    VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS, NODEPORT, TARGETPORT) = ('command', 'env', 'ports', 'nodeport', 'targetport')
+    VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS, NODEPORT, TARGETPORT, PROTOCOL, NODEPORT_PROTOCOL) = ('command', 'env', 'ports', 'nodeport', 'targetport', 'protocol', 'nodeport_protocol')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')
     VDU_ARTIFACTS_TYPE = (SW_IMAGE, ARTIFACTS_FILE) = ('tosca.artifacts.nfv.SwImage', 'tosca.artifacts.File')
 

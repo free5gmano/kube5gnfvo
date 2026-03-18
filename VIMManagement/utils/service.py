@@ -72,14 +72,20 @@ class ServiceClient(KubernetesApi):
         node_port_value = self.node_port[index] if isinstance(self.node_port, list) and index < len(self.node_port) else self.node_port
         target_port_value = self.target_port[index] if isinstance(self.target_port, list) and index < len(self.target_port) else self.target_port
         
-        if target_port_value is None:
-            return self.kubernetes_client.V1ServicePort(
-                name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=protocol,
-                                    node_port=int(node_port_value))
-        else:
-            return self.kubernetes_client.V1ServicePort(
-                name='{}{}'.format(self.instance_name[-10:], port), port=int(port), protocol=protocol,
-                                    target_port=int(target_port_value), node_port=int(node_port_value))
+        # Build service port with optional nodePort (None means auto-assign)
+        service_port_kwargs = {
+            'name': '{}{}'.format(self.instance_name[-10:], port),
+            'port': int(port),
+            'protocol': protocol
+        }
+        
+        if target_port_value is not None:
+            service_port_kwargs['target_port'] = int(target_port_value)
+        
+        if node_port_value is not None:
+            service_port_kwargs['node_port'] = int(node_port_value)
+        
+        return self.kubernetes_client.V1ServicePort(**service_port_kwargs)
 
     def _create_service_port(self, protocol, port):
         # Validate protocol

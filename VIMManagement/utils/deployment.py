@@ -139,8 +139,10 @@ class DeploymentClient(KubernetesApi):
 
         container_ports = list()
         if self.ports and self.name_of_service:
-            for port in self.ports:
-                container_ports.append(self._get_container_port(port))
+            protocols = self.protocol if isinstance(self.protocol, list) else [self.protocol] * len(self.ports)
+            for i, port in enumerate(self.ports):
+                protocol = protocols[i] if i < len(protocols) else 'TCP'
+                container_ports.append(self._get_container_port(port, protocol))
 
         if self.path_of_storage:
             volume_mounts.append(self._get_volume_mount(
@@ -163,23 +165,13 @@ class DeploymentClient(KubernetesApi):
             template=self.kubernetes_client.V1PodTemplateSpec(
                 spec=pod_spec, metadata=deployment_meta))
 
-    def _get_container_port(self, port: int):
-        # Kubernetes port name 規則：
-        # - 不能以連字號開頭或結尾
-        # - 只能包含小寫字母、數字和連字號
-        # - 最多 15 個字符
+    def _get_container_port(self, port: int, protocol: str = None):
         port_name = '{}{}'.format(self.instance_name[-10:], port)
-        # 移除開頭的連字號
-        port_name = port_name.lstrip('-')
-        # 確保長度不超過 15 個字符
-        port_name = port_name[:15]
-        # 移除結尾的連字號
-        port_name = port_name.rstrip('-')
-        
+        port_name = port_name.lstrip('-')[:15].rstrip('-')
         return self.kubernetes_client.V1ContainerPort(
             name=port_name,
             container_port=port,
-            protocol=self.protocol)
+            protocol=protocol)
 
     def _get_volume_mount(self, name, mount_path, sub_path=None):
         return self.kubernetes_client.V1VolumeMount(

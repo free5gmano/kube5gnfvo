@@ -121,10 +121,10 @@ class ProcessVNFInstance(BaseProcess):
             self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 
-            if vdu.attributes['ports'] and vdu.attributes['name_of_service']:
+            if vdu.attributes.get('ports') and vdu.attributes.get('name_of_service'):
                 self.process_service(vdu=vdu)
 
-            if vdu.attributes['nodeport'] and vdu.attributes['name_of_nodeport']:
+            if vdu.attributes.get('nodeport') and vdu.attributes.get('name_of_nodeport'):
                 self.process_nodeport(vdu=vdu)
 
             if vdu.requirements and vdu.requirements['size_of_storage'] and vdu.requirements['path_of_storage']:
