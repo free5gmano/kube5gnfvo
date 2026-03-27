@@ -194,7 +194,8 @@ install_kubernetes_tools() {
     fi
 
     sudo apt-get update
-    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y kubectl=${K8S_VERSION}* kubeadm=${K8S_VERSION}* kubelet=${K8S_VERSION}*
+    sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall \
+         kubectl=${K8S_VERSION}* kubeadm=${K8S_VERSION}* kubelet=${K8S_VERSION}*
     sudo apt-mark hold kubelet kubeadm kubectl
     log_success "Kubernetes 工具安裝完成"
 }
@@ -332,18 +333,6 @@ install_ovs_cni() {
     fi
 }
 
-# 安裝 KubeVirt
-install_kubevirt() {
-    log_info "安裝 KubeVirt..."
-    if kubectl get namespace kubevirt &>/dev/null; then
-        log_success "KubeVirt 已存在"
-        return
-    fi
-    kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-operator.yaml
-    sleep 5
-    kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-cr.yaml
-}
-
 # 安裝 etcd 集群
 install_etcd() {
     log_info "安裝 etcd 集群..."
@@ -425,7 +414,6 @@ main() {
     install_openvswitch
     install_multus
     install_ovs_cni
-    install_kubevirt
     install_etcd
     
     create_storage_directories

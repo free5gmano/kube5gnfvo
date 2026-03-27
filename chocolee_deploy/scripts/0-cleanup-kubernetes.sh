@@ -320,6 +320,16 @@ cleanup_storage() {
     log_success "儲存目錄已清理"
 }
 
+cleanup_binaries() {
+    log_info "清理 kubectl binary..."
+
+    rm -f /usr/bin/kubectl 2>/dev/null || true
+    rm -f /usr/bin/kubeadm 2>/dev/null || true
+    rm -f /usr/bin/kubelet 2>/dev/null || true
+
+    log_success "kubectl 已完全移除"
+}
+
 # 主函數
 main() {
     echo ""
@@ -360,7 +370,7 @@ main() {
     uninstall_openvswitch
     enable_swap
     cleanup_storage
-    
+    cleanup_binaries
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║     Kubernetes 清理完成！                                      ║"
