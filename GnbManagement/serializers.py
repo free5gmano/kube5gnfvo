@@ -14,7 +14,22 @@
 #    under the License.
 
 from rest_framework import serializers
-from .models import GnbInstance
+from .models import GnbInstance, GnbTemplate
+
+
+class GnbTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GnbTemplate
+        fields = ['id', 'templateName', 'templateDescription', 'namespace',
+                  'yamlContent', 'createdAt', 'updatedAt']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+
+class GnbTemplateCreateSerializer(serializers.Serializer):
+    templateName = serializers.CharField(max_length=255)
+    templateDescription = serializers.CharField(required=False, allow_blank=True)
+    namespace = serializers.CharField(default='default')
+    yamlContent = serializers.CharField()
 
 
 class GnbInstanceSerializer(serializers.ModelSerializer):
@@ -30,3 +45,9 @@ class GnbInstanceCreateSerializer(serializers.Serializer):
     gnbInstanceDescription = serializers.CharField(required=False, allow_blank=True)
     namespace = serializers.CharField(default='default')
     yamlContent = serializers.CharField()
+
+
+class GnbTemplateDeploySerializer(serializers.Serializer):
+    gnbInstanceName = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    gnbInstanceDescription = serializers.CharField(required=False, allow_blank=True)
+    namespace = serializers.CharField(required=False, allow_blank=True)

@@ -17,6 +17,16 @@ import uuid
 from django.db import models
 
 
+class GnbTemplate(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    templateName = models.TextField()
+    templateDescription = models.TextField(null=True, blank=True)
+    namespace = models.TextField(default='default')
+    yamlContent = models.TextField()
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+
 class GnbInstance(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     gnbInstanceName = models.TextField()

@@ -16,9 +16,108 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import GnbInstance
-from .serializers import GnbInstanceSerializer, GnbInstanceCreateSerializer
+from .models import GnbInstance, GnbTemplate
+from .serializers import (
+    GnbInstanceSerializer,
+    GnbInstanceCreateSerializer,
+    GnbTemplateSerializer,
+    GnbTemplateCreateSerializer,
+    GnbTemplateDeploySerializer,
+)
 from utils.process_gnb.gnb_deployer import GnbDeployer
+
+
+@api_view(['GET', 'POST'])
+def gnb_templates_list(request):
+    """
+    GET: 列出所有 gNB templates
+    POST: 上架新的 gNB template
+    """
+    if request.method == 'GET':
+        templates = GnbTemplate.objects.all().order_by('-createdAt')
+        serializer = GnbTemplateSerializer(templates, many=True)
+        return Response(serializer.data)
+
+    serializer = GnbTemplateCreateSerializer(data=request.data)
+    if serializer.is_valid():
+        template = GnbTemplate.objects.create(
+            templateName=serializer.validated_data['templateName'],
+            templateDescription=serializer.validated_data.get('templateDescription', ''),
+            namespace=serializer.validated_data.get('namespace', 'default'),
+            yamlContent=serializer.validated_data['yamlContent']
+        )
+        response_serializer = GnbTemplateSerializer(template)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'DELETE'])
+def gnb_template_detail(request, template_id):
+    """
+    GET: 獲取特定 gNB template 詳情
+    DELETE: 刪除特定 gNB template
+    """
+    try:
+        gnb_template = GnbTemplate.objects.get(id=template_id)
+    except GnbTemplate.DoesNotExist:
+        return Response(
+            {'error': 'gNB template not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == 'GET':
+        serializer = GnbTemplateSerializer(gnb_template)
+        return Response(serializer.data)
+
+    gnb_template.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def gnb_template_deploy(request, template_id):
+    """
+    POST: 使用既有 gNB template 建立新的 gNB instance
+    """
+    try:
+        gnb_template = GnbTemplate.objects.get(id=template_id)
+    except GnbTemplate.DoesNotExist:
+        return Response(
+            {'error': 'gNB template not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    serializer = GnbTemplateDeploySerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    gnb_instance_name = serializer.validated_data.get('gnbInstanceName') or gnb_template.templateName
+    gnb_instance_description = (
+        serializer.validated_data.get('gnbInstanceDescription')
+        if 'gnbInstanceDescription' in serializer.validated_data
+        else gnb_template.templateDescription
+    )
+    namespace = serializer.validated_data.get('namespace') or gnb_template.namespace
+
+    try:
+        deployer = GnbDeployer(
+            gnb_name=gnb_instance_name,
+            namespace=namespace,
+            yaml_content=gnb_template.yamlContent
+        )
+
+        gnb_instance = deployer.deploy()
+        gnb_instance.gnbInstanceDescription = gnb_instance_description
+        gnb_instance.save()
+
+        response_serializer = GnbInstanceSerializer(gnb_instance)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET', 'POST'])
@@ -28,7 +127,7 @@ def gnb_instances_list(request):
     POST: 創建新的 gNB 實例
     """
     if request.method == 'GET':
-        instances = GnbInstance.objects.all()
+        instances = GnbInstance.objects.all().order_by('-createdAt')
         serializer = GnbInstanceSerializer(instances, many=True)
         return Response(serializer.data)
     
