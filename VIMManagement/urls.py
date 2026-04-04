@@ -18,4 +18,5 @@ from VIMManagement import views
 
 urlpatterns = [
     path('vimm/v1/kubernetes', views.kubernetes_resource),
+    path('vimm/v1/services/<str:namespace>/<str:service_name>', views.kubernetes_service_detail),
 ]

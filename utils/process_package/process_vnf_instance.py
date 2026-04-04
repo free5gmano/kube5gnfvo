@@ -12,9 +12,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import ast
+import json
 import os
 from abc import abstractmethod
 from VnfPackageManagement.serializers import vnf_package_base_path
+from VnfPackageManagement.models import VnfPkgInfo
 from utils.file_manipulation import walk_file
 from utils.process_package.base_process import BaseProcess
 
@@ -26,6 +29,47 @@ class ProcessVNFInstance(BaseProcess):
         self.vnf_instance_name = None
         if vnf_instance_name:
             self.vnf_instance_name = vnf_instance_name.lower()
+        self.package_metadata = self._load_package_metadata()
+        self.target_node_name = self._extract_target_node_name(self.package_metadata)
+
+    def _load_package_metadata(self):
+        vnf_package = VnfPkgInfo.objects.filter(id=self.package_id).last()
+        if vnf_package is None or not vnf_package.userDefinedData:
+            return {}
+
+        raw_metadata = vnf_package.userDefinedData
+        if isinstance(raw_metadata, dict):
+            return raw_metadata
+
+        if not isinstance(raw_metadata, str):
+            return {}
+
+        normalized_metadata = raw_metadata.strip()
+        if not normalized_metadata:
+            return {}
+
+        try:
+            parsed_metadata = json.loads(normalized_metadata)
+            return parsed_metadata if isinstance(parsed_metadata, dict) else {}
+        except Exception:
+            pass
+
+        try:
+            parsed_metadata = ast.literal_eval(normalized_metadata)
+            return parsed_metadata if isinstance(parsed_metadata, dict) else {}
+        except Exception:
+            return {}
+
+    def _extract_target_node_name(self, metadata):
+        if not isinstance(metadata, dict):
+            return None
+
+        for key in ('node_name', 'nodeName'):
+            value = metadata.get(key)
+            if value and str(value).strip():
+                return str(value).strip()
+
+        return None
 
     def get_root_path(self):
         result = walk_file('{}{}'.format(vnf_package_base_path, self.package_id), 'package_content')
@@ -118,6 +162,8 @@ class ProcessVNFInstance(BaseProcess):
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
+            if self.target_node_name:
+                vdu_info['node_name'] = self.target_node_name
             self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 

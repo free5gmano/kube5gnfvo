@@ -45,9 +45,11 @@ class GnbInstanceCreateSerializer(serializers.Serializer):
     gnbInstanceDescription = serializers.CharField(required=False, allow_blank=True)
     namespace = serializers.CharField(default='default')
     yamlContent = serializers.CharField()
+    nodeName = serializers.CharField(required=False, allow_blank=True)
 
 
 class GnbTemplateDeploySerializer(serializers.Serializer):
     gnbInstanceName = serializers.CharField(max_length=255, required=False, allow_blank=True)
     gnbInstanceDescription = serializers.CharField(required=False, allow_blank=True)
     namespace = serializers.CharField(required=False, allow_blank=True)
+    nodeName = serializers.CharField(required=False, allow_blank=True)

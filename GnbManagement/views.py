@@ -98,12 +98,14 @@ def gnb_template_deploy(request, template_id):
         else gnb_template.templateDescription
     )
     namespace = serializer.validated_data.get('namespace') or gnb_template.namespace
+    node_name = serializer.validated_data.get('nodeName') or None
 
     try:
         deployer = GnbDeployer(
             gnb_name=gnb_instance_name,
             namespace=namespace,
-            yaml_content=gnb_template.yamlContent
+            yaml_content=gnb_template.yamlContent,
+            node_name=node_name,
         )
 
         gnb_instance = deployer.deploy()
@@ -138,7 +140,8 @@ def gnb_instances_list(request):
                 deployer = GnbDeployer(
                     gnb_name=serializer.validated_data['gnbInstanceName'],
                     namespace=serializer.validated_data.get('namespace', 'default'),
-                    yaml_content=serializer.validated_data['yamlContent']
+                    yaml_content=serializer.validated_data['yamlContent'],
+                    node_name=serializer.validated_data.get('nodeName') or None,
                 )
                 
                 gnb_instance = deployer.deploy()

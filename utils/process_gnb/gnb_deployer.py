@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
 import yaml
 
 from kubernetes import client, config
@@ -20,10 +21,11 @@ from GnbManagement.models import GnbInstance
 
 
 class GnbDeployer:
-    def __init__(self, gnb_name, namespace, yaml_content):
+    def __init__(self, gnb_name, namespace, yaml_content, node_name=None):
         self.gnb_name = gnb_name
         self.namespace = namespace
         self.yaml_content = yaml_content
+        self.node_name = node_name.strip() if node_name else None
         
         try:
             config.load_incluster_config()
@@ -33,6 +35,78 @@ class GnbDeployer:
         self.api_client = client.ApiClient()
         self.core_v1 = client.CoreV1Api()
         self.apps_v1 = client.AppsV1Api()
+
+    def _build_runtime_prefix(self, gnb_instance):
+        instance_id = str(getattr(gnb_instance, 'id', '') or '').strip().lower()
+        short_id = instance_id.split('-')[0] if instance_id else ''
+        if not short_id:
+            raise ValueError('Failed to derive runtime id for gNB instance')
+        # Kubernetes Service names must start with an alphabetic character.
+        return f'gnb-{short_id}'
+
+    def _render_runtime_docs(self, gnb_instance):
+        runtime_prefix = self._build_runtime_prefix(gnb_instance)
+        rendered_docs = []
+
+        for document in yaml.safe_load_all(self.yaml_content):
+            if document is None:
+                continue
+
+            manifest = copy.deepcopy(document)
+            kind = manifest.get('kind')
+            metadata = manifest.setdefault('metadata', {})
+            original_name = metadata.get('name', '')
+
+            if kind == 'ConfigMap':
+                metadata['name'] = f'{runtime_prefix}-config'
+
+            elif kind == 'Deployment':
+                metadata['name'] = runtime_prefix
+                labels = metadata.setdefault('labels', {})
+                labels['app'] = runtime_prefix
+
+                spec = manifest.setdefault('spec', {})
+                selector = spec.setdefault('selector', {})
+                match_labels = selector.setdefault('matchLabels', {})
+                match_labels['app'] = runtime_prefix
+
+                template = spec.setdefault('template', {})
+                template_metadata = template.setdefault('metadata', {})
+                template_labels = template_metadata.setdefault('labels', {})
+                template_labels['app'] = runtime_prefix
+
+                template_spec = template.setdefault('spec', {})
+                if self.node_name:
+                    template_spec['nodeName'] = self.node_name
+
+                for volume in template_spec.get('volumes', []) or []:
+                    config_map = volume.get('configMap')
+                    if config_map and config_map.get('name') == 'ueransim-gnb-configmap':
+                        config_map['name'] = f'{runtime_prefix}-config'
+
+            elif kind == 'Service':
+                spec = manifest.setdefault('spec', {})
+                selector = spec.setdefault('selector', {})
+                selector['app'] = runtime_prefix
+
+                if original_name == 'ueransim-gnb-svc':
+                    metadata['name'] = f'{runtime_prefix}-svc'
+                elif original_name == 'ueransim-gnb-svc-nodeport':
+                    metadata['name'] = f'{runtime_prefix}-nodeport'
+                    for port in spec.get('ports', []) or []:
+                        # Let Kubernetes auto-assign a unique nodePort so multiple gNB instances can coexist.
+                        port.pop('nodePort', None)
+
+            rendered_docs.append(manifest)
+
+        rendered_yaml = yaml.dump_all(
+            rendered_docs,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+            explicit_start=True,
+        )
+        return rendered_docs, rendered_yaml
     
     def deploy(self):
         """部署 gNB 到 Kubernetes"""
@@ -44,12 +118,11 @@ class GnbDeployer:
         )
         
         try:
-            yaml_docs = yaml.safe_load_all(self.yaml_content)
+            yaml_docs, rendered_yaml = self._render_runtime_docs(gnb_instance)
+            gnb_instance.yamlContent = rendered_yaml
+            gnb_instance.save(update_fields=['yamlContent', 'updatedAt'])
             
             for doc in yaml_docs:
-                if doc is None:
-                    continue
-                
                 kind = doc.get('kind')
                 
                 if kind == 'ConfigMap':
@@ -60,13 +133,13 @@ class GnbDeployer:
                     self._deploy_deployment(doc)
             
             gnb_instance.deploymentState = 'INSTANTIATED'
-            gnb_instance.save()
+            gnb_instance.save(update_fields=['deploymentState', 'updatedAt'])
             
             return gnb_instance
         
         except Exception as e:
             gnb_instance.deploymentState = 'FAILED'
-            gnb_instance.save()
+            gnb_instance.save(update_fields=['deploymentState', 'updatedAt'])
             raise Exception(f"Failed to deploy gNB: {str(e)}")
     
     def undeploy(self):
@@ -136,6 +209,9 @@ class GnbDeployer:
     
     def _deploy_deployment(self, manifest):
         """部署 Deployment"""
+        if self.node_name:
+            template_spec = manifest.setdefault('spec', {}).setdefault('template', {}).setdefault('spec', {})
+            template_spec['nodeName'] = self.node_name
         try:
             self.apps_v1.create_namespaced_deployment(
                 namespace=self.namespace,
