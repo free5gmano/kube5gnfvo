@@ -36,3 +36,19 @@ class GnbInstance(models.Model):
     yamlContent = models.TextField()
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
+
+
+class UeInstance(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ueInstanceName = models.TextField()
+    ueInstanceDescription = models.TextField(null=True, blank=True)
+    namespace = models.TextField(default='default')
+    deploymentState = models.TextField(default='NOT_INSTANTIATED')
+    yamlContent = models.TextField()
+    gnbServiceName = models.TextField(null=True, blank=True)
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ue_instance'
+        ordering = ['-createdAt']

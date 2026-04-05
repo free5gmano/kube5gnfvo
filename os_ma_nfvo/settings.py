@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'NSFaultSubscription.apps.NSFaultSubscriptionConfig',
     'VIMManagement.apps.VimmanagementConfig',
     'GnbManagement.apps.GnbmanagementConfig',
-    'MecAppManagement.apps.MecappmanagementConfig'
+    'UEManagement.apps.UemanagementConfig'
 ]
 
 REST_FRAMEWORK = {

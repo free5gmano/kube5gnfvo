@@ -14,7 +14,7 @@
 #    under the License.
 
 from rest_framework import serializers
-from .models import GnbInstance, GnbTemplate
+from .models import GnbInstance, GnbTemplate, UeInstance
 
 
 class GnbTemplateSerializer(serializers.ModelSerializer):
@@ -53,3 +53,22 @@ class GnbTemplateDeploySerializer(serializers.Serializer):
     gnbInstanceDescription = serializers.CharField(required=False, allow_blank=True)
     namespace = serializers.CharField(required=False, allow_blank=True)
     nodeName = serializers.CharField(required=False, allow_blank=True)
+
+
+class UeInstanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UeInstance
+        fields = [
+            'id', 'ueInstanceName', 'ueInstanceDescription', 'namespace',
+            'deploymentState', 'gnbServiceName', 'createdAt', 'updatedAt'
+        ]
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
+
+
+class UeInstanceCreateSerializer(serializers.Serializer):
+    ueInstanceName = serializers.CharField(max_length=255)
+    ueInstanceDescription = serializers.CharField(required=False, allow_blank=True)
+    namespace = serializers.CharField(default='default')
+    yamlContent = serializers.CharField()
+    nodeName = serializers.CharField(required=False, allow_blank=True)
+    gnbServiceName = serializers.CharField(required=False, allow_blank=True)
