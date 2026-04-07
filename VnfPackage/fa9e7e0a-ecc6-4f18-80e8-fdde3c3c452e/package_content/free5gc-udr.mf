@@ -1,0 +1,6 @@
+
+metadata:
+vnf_product_name: udr
+vnf_provider_id: Intent-Based AI Agent System
+vnf_package_version: 1.0
+vnf_release_date_time: 2026-04-05T17:50:58+08:00

@@ -1,0 +1,7 @@
+TOSCA-Meta-File-Version: 1.0
+CSAR-Version: 1.1
+Created-By: Intent-Based AI Agent System
+Entry-Definitions: Definitions/pcf.yaml
+ETSI-Entry-Manifest: free5gc-pcf.mf
+ETSI-Entry-Change-Log: Files/ChangeLog.txt
+ETSI-Entry-Artifacts: Files/Artifacts/pcfcfg.conf

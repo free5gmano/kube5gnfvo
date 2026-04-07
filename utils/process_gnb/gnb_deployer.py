@@ -86,6 +86,12 @@ class GnbDeployer:
 
             elif kind == 'Service':
                 spec = manifest.setdefault('spec', {})
+                if spec.get('type') == 'NodePort':
+                    # NodePort is optional for gNB templates; skip it entirely so
+                    # incomplete or cluster-specific NodePort definitions do not
+                    # block the main gNB deployment flow.
+                    continue
+
                 selector = spec.setdefault('selector', {})
                 selector['app'] = runtime_prefix
 
