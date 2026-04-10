@@ -38,14 +38,21 @@ class AlarmEvent(object):
 
     def create_alarm(self, name: str, reason: str, message: str, is_container: bool):
         if is_container:
+            # Try progressively shorter prefixes to match VnfInstance name.
+            # Pod name format varies: {vnf_name}-{rs_hash}-{pod_hash}
+            # but the number of '-' segments in the suffix is unpredictable.
             pod_name_list = name.split('-')
-            [pod_name_list.pop(-1) for _ in range(0, 2)]
-            vnf_name = '-'.join(pod_name_list)
+            vnf_instance = None
+            for i in range(1, min(len(pod_name_list), 4)):
+                candidate = '-'.join(pod_name_list[:-i])
+                if not candidate:
+                    break
+                vnf_instance = VnfInstance.objects.filter(vnfInstanceName=candidate).last()
+                if vnf_instance:
+                    break
         else:
             vnf_name = name[:-5]
-
-        vnf_instance = VnfInstance.objects.filter(vnfInstanceName=vnf_name).last()
-        if vnf_instance:
+            if vnf_instance:
             ns_instance_id, ns_instance_link = self.managed_object(vnf_instance)
             check = self._time_check(ns_instance_id, str(vnf_instance.id))
             if check:
