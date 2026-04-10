@@ -52,7 +52,9 @@ class AlarmEvent(object):
                     break
         else:
             vnf_name = name[:-5]
-            if vnf_instance:
+            vnf_instance = VnfInstance.objects.filter(vnfInstanceName=vnf_name).last()
+
+        if vnf_instance:
             ns_instance_id, ns_instance_link = self.managed_object(vnf_instance)
             check = self._time_check(ns_instance_id, str(vnf_instance.id))
             if check:
