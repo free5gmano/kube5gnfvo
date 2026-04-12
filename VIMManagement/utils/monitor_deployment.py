@@ -16,6 +16,7 @@ import queue
 import threading
 from functools import partial
 from NSFaultManagement.utils.alarm_event import AlarmEvent
+from NSFaultManagement.utils.resource_monitor import ResourceMonitor
 from VIMManagement.utils.base_kubernetes import BaseKubernetes
 from utils.etcd_client.etcd_client import EtcdClient
 
@@ -38,6 +39,15 @@ class MonitorDeployment(BaseKubernetes):
                 target=partial(self._get_pod_event),
                 daemon=True
             ).start()
+            # Resource pressure monitor (CPUPressure / MemoryPressure / TrafficSurge)
+            try:
+                resource_monitor = ResourceMonitor(self.core_v1, self.alarm)
+                threading.Thread(
+                    target=resource_monitor.run_forever,
+                    daemon=True,
+                ).start()
+            except Exception as e:
+                print(f"[MonitorDeployment] failed to start ResourceMonitor: {e}")
             # 只有在 kubevirt_api 可用時才啟動相關線程
             if self.kubevirt_api is not None:
                 threading.Thread(
