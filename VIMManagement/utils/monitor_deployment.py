@@ -14,9 +14,9 @@
 #    under the License.
 import queue
 import threading
+from datetime import datetime
 from functools import partial
 from NSFaultManagement.utils.alarm_event import AlarmEvent
-from NSFaultManagement.utils.resource_monitor import ResourceMonitor
 from VIMManagement.utils.base_kubernetes import BaseKubernetes
 from utils.etcd_client.etcd_client import EtcdClient
 
@@ -39,15 +39,6 @@ class MonitorDeployment(BaseKubernetes):
                 target=partial(self._get_pod_event),
                 daemon=True
             ).start()
-            # Resource pressure monitor (CPUPressure / MemoryPressure / TrafficSurge)
-            try:
-                resource_monitor = ResourceMonitor(self.core_v1, self.alarm)
-                threading.Thread(
-                    target=resource_monitor.run_forever,
-                    daemon=True,
-                ).start()
-            except Exception as e:
-                print(f"[MonitorDeployment] failed to start ResourceMonitor: {e}")
             # 只有在 kubevirt_api 可用時才啟動相關線程
             if self.kubevirt_api is not None:
                 threading.Thread(
@@ -122,24 +113,55 @@ class MonitorDeployment(BaseKubernetes):
                     continue
 
                 _name = _metadata['name']
-                _phase = _status['phase']
+                _namespace = _metadata.get('namespace', 'default')
+                _phase = _status.get('phase')
                 if _phase == 'Running':
                     self.pod_status[_name] = _phase
 
-                if _type == 'MODIFIED' and 'deletionTimestamp' not in _metadata:
-                    if 'containerStatuses' in _status:
-                        container_status = _status['containerStatuses']
-                        for status in container_status:
-                            if 'state' not in status:
-                                continue
+                if _type in ('MODIFIED', 'ADDED') and 'deletionTimestamp' not in _metadata:
 
-                            state = status['state']
-                            if 'waiting' in state and \
-                                    'CrashLoopBackOff' == state['waiting']['reason']:
+                    # Case A: Pending + Unschedulable → 排程失敗
+                    if _phase == 'Pending':
+                        conditions = _status.get('conditions') or []
+                        for cond in conditions:
+                            if (cond.get('type') == 'PodScheduled'
+                                    and cond.get('status') == 'False'
+                                    and cond.get('reason') == 'Unschedulable'):
+                                # event-driven 收到，事件原因附在 condition.message
                                 self.alarm.create_alarm(
-                                    _name, state['waiting']['reason'], state['waiting']['message'], True)
-                                if _name in list(self.pod_status):
-                                    self.pod_crash_event(None, _name)
+                                    _name,
+                                    'Unschedulable',
+                                    cond.get('message') or 'Pod cannot be scheduled',
+                                    True,
+                                )
+                                break
+
+                    # Case B: CrashLoopBackOff → 抓真正的終止原因 (OOMKilled / Error / 等)
+                    container_statuses = _status.get('containerStatuses') or []
+                    for status in container_statuses:
+                        state = status.get('state')
+                        if not isinstance(state, dict):
+                            continue
+                        waiting = state.get('waiting')
+                        if not waiting or waiting.get('reason') != 'CrashLoopBackOff':
+                            continue
+
+                        last_state = status.get('lastState') or {}
+                        terminated = last_state.get('terminated') or {}
+                        actual_reason = terminated.get('reason') or 'Unknown'
+                        actual_message = (
+                            terminated.get('message')
+                            or waiting.get('message')
+                            or ''
+                        )
+                        exit_code = terminated.get('exitCode')
+                        detail = (
+                            f"{actual_message} (exitCode={exit_code})"
+                            if exit_code is not None else actual_message
+                        )
+                        self.alarm.create_alarm(_name, actual_reason, detail, True)
+                        if _name in list(self.pod_status):
+                            self.pod_crash_event(None, _name)
 
                 elif _type == 'DELETED' and _name in list(self.pod_status) and 'deletionTimestamp' in _metadata:
                     self.pod_crash_event(_name, None)

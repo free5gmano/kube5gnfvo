@@ -162,8 +162,11 @@ class ProcessVNFInstance(BaseProcess):
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
-            if self.target_node_name:
-                vdu_info['node_name'] = self.target_node_name
+            # kwargs override (for migration via scale endpoint)
+            override_node_name = kwargs.get('target_node_name')
+            effective_node_name = override_node_name or self.target_node_name
+            if effective_node_name:
+                vdu_info['node_name'] = effective_node_name
             self.process_namespace(vdu=vdu)
             self.process_artifacts(vdu, vdu_info)
 

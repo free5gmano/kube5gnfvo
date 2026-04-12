@@ -270,9 +270,14 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
                             'virtual_mem_size'] if 'virtual_mem_size' in additional_params else None
                         num_virtual_cpu = additional_params[
                             'num_virtual_cpu'] if 'num_virtual_cpu' in additional_params else None
+                        target_node_name = additional_params.get('target_node_name')
                         create_network_service = CreateService(vnf_instance.vnfPkgId, vnf_instance.vnfInstanceName)
                         create_network_service.process_instance(
-                            replicas=replicas, virtual_mem_size=virtual_mem_size, num_virtual_cpu=num_virtual_cpu)
+                            replicas=replicas,
+                            virtual_mem_size=virtual_mem_size,
+                            num_virtual_cpu=num_virtual_cpu,
+                            target_node_name=target_node_name,
+                        )
                         vnf_instance_list.append(vnf_instance)
             set_ns_lcm_op_occ(ns_instance, request, vnf_instance_list, 'SCALE')
             self.monitor_vnf.monitoring_vnf(kwargs['pk'], self.monitor_vnf.scale,
