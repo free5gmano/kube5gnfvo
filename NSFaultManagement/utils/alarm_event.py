@@ -76,13 +76,18 @@ class AlarmEvent(object):
 
                 FaultyResourceInfo.objects.create(rootCauseFaultyResource=alarm)
 
+    # 同一個 (ns_id, vnf_id) 在此秒數內重複告警會被擋掉
+    COOLDOWN_SECONDS = 60
+
     def _time_check(self, ns_id, vnf_id):
-        if ns_id + vnf_id in list(self.error_record):
-            time = str(datetime.now() - self.error_record[ns_id + vnf_id]).split('.')[0].split(':')
-            if int(time[0]) >= 1 or int(time[1]) >= 1 or int(time[2]) >= 10:
-                self.error_record[ns_id + vnf_id] = datetime.now()
+        key = ns_id + vnf_id
+        now = datetime.now()
+        if key in self.error_record:
+            elapsed = (now - self.error_record[key]).total_seconds()
+            if elapsed >= self.COOLDOWN_SECONDS:
+                self.error_record[key] = now
                 return True
             return False
         else:
-            self.error_record[ns_id + vnf_id] = datetime.now()
+            self.error_record[key] = now
             return True

@@ -136,30 +136,58 @@ class MonitorDeployment(BaseKubernetes):
                                 )
                                 break
 
-                    # Case B: CrashLoopBackOff → 抓真正的終止原因 (OOMKilled / Error / 等)
+                    # Case B: Container 終止/重啟相關 → 抓真正的終止原因
+                    # 三個觸發條件：
+                    #   1. 當前 state.terminated.reason = 'OOMKilled' (剛被 OOMKill)
+                    #   2. lastState.terminated.reason 有值 + restartCount >= 2 (重啟至少 2 次)
+                    #   3. waiting.reason = 'CrashLoopBackOff' (backoff 階段)
                     container_statuses = _status.get('containerStatuses') or []
                     for status in container_statuses:
                         state = status.get('state')
                         if not isinstance(state, dict):
                             continue
-                        waiting = state.get('waiting')
-                        if not waiting or waiting.get('reason') != 'CrashLoopBackOff':
+
+                        restart_count = status.get('restartCount', 0)
+                        waiting = state.get('waiting') or {}
+                        terminated_now = state.get('terminated') or {}
+                        last_state = status.get('lastState') or {}
+                        terminated_last = last_state.get('terminated') or {}
+
+                        trigger_reason = None
+                        trigger_message = ''
+                        trigger_exit_code = None
+
+                        # 條件 1: 當前就是 terminated (通常很短暫，但如果抓到就是即時)
+                        if terminated_now.get('reason'):
+                            trigger_reason = terminated_now.get('reason')
+                            trigger_message = terminated_now.get('message') or ''
+                            trigger_exit_code = terminated_now.get('exitCode')
+
+                        # 條件 2: lastState 有 OOMKilled 且 restart >= 1 (已經重啟過，lastState 穩定)
+                        elif terminated_last.get('reason') == 'OOMKilled' and restart_count >= 1:
+                            trigger_reason = 'OOMKilled'
+                            trigger_message = terminated_last.get('message') or ''
+                            trigger_exit_code = terminated_last.get('exitCode')
+
+                        # 條件 3: 進入 CrashLoopBackOff (連續失敗，使用 lastState 判斷)
+                        elif waiting.get('reason') == 'CrashLoopBackOff':
+                            trigger_reason = terminated_last.get('reason') or 'Unknown'
+                            trigger_message = (
+                                terminated_last.get('message')
+                                or waiting.get('message')
+                                or ''
+                            )
+                            trigger_exit_code = terminated_last.get('exitCode')
+
+                        if not trigger_reason:
                             continue
 
-                        last_state = status.get('lastState') or {}
-                        terminated = last_state.get('terminated') or {}
-                        actual_reason = terminated.get('reason') or 'Unknown'
-                        actual_message = (
-                            terminated.get('message')
-                            or waiting.get('message')
-                            or ''
-                        )
-                        exit_code = terminated.get('exitCode')
                         detail = (
-                            f"{actual_message} (exitCode={exit_code})"
-                            if exit_code is not None else actual_message
+                            f"{trigger_message} (exitCode={trigger_exit_code}, restartCount={restart_count})"
+                            if trigger_exit_code is not None
+                            else f"{trigger_message} (restartCount={restart_count})"
                         )
-                        self.alarm.create_alarm(_name, actual_reason, detail, True)
+                        self.alarm.create_alarm(_name, trigger_reason, detail, True)
                         if _name in list(self.pod_status):
                             self.pod_crash_event(None, _name)
 
