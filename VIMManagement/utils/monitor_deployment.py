@@ -136,19 +136,28 @@ class MonitorDeployment(BaseKubernetes):
                                 )
                                 break
 
-                    # Case B: CrashLoopBackOff → 抓 lastState.terminated.reason
-                    # 簡單穩定版: 只在 waiting.reason = CrashLoopBackOff 時觸發，
-                    # probableCause 用 lastState 的 reason，抓不到就用字面字串。
-                    # Agent 會自己讀 pod logs 再判斷是不是 OOM。
+                    # Case B: 容器 crash → 抓真正的終止原因
+                    # 不只看 CrashLoopBackOff (要等 5+ 次 restart 才會出現)
+                    # 也看 lastState.terminated 直接抓最近一次的退出原因
+                    # 這樣 OOMKilled / Error 等可以更早被偵測到
                     container_statuses = _status.get('containerStatuses') or []
                     for cs in container_statuses:
                         state = cs.get('state') or {}
+                        last_state = cs.get('lastState') or {}
+
                         waiting = state.get('waiting') or {}
-                        if waiting.get('reason') != 'CrashLoopBackOff':
+                        is_crash_loop = waiting.get('reason') == 'CrashLoopBackOff'
+
+                        last_terminated = last_state.get('terminated') or {}
+                        last_reason = last_terminated.get('reason')
+                        # 哪些 terminated reason 算 crash 需要發 alarm
+                        crash_reasons = {'OOMKilled', 'Error', 'ContainerCannotRun', 'DeadlineExceeded'}
+                        is_recent_crash = last_reason in crash_reasons
+
+                        if not (is_crash_loop or is_recent_crash):
                             continue
 
-                        last_terminated = (cs.get('lastState') or {}).get('terminated') or {}
-                        reason = last_terminated.get('reason') or 'CrashLoopBackOff'
+                        reason = last_reason or waiting.get('reason') or 'CrashLoopBackOff'
                         message = (
                             last_terminated.get('message')
                             or waiting.get('message')
