@@ -157,6 +157,41 @@ def gnb_instance_migrate(request, gnb_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["POST"])
+def gnb_instance_scale(request, gnb_id):
+    """
+    Scale CPU / memory resources of a deployed gNB.
+    Body: { "num_virtual_cpu": "1200m", "virtual_mem_size": "2Gi" }
+    """
+    try:
+        gnb_instance = GnbInstance.objects.get(id=gnb_id)
+    except GnbInstance.DoesNotExist:
+        return Response({"error": "gNB instance not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    num_virtual_cpu = (request.data or {}).get("num_virtual_cpu", "").strip() or None
+    virtual_mem_size = (request.data or {}).get("virtual_mem_size", "").strip() or None
+
+    if not num_virtual_cpu and not virtual_mem_size:
+        return Response(
+            {"error": "at least one of num_virtual_cpu or virtual_mem_size is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        deployer = GnbDeployer(
+            gnb_name=gnb_instance.gnbInstanceName,
+            namespace=gnb_instance.namespace,
+            yaml_content=gnb_instance.yamlContent,
+        )
+        result = deployer.scale_resources(
+            num_virtual_cpu=num_virtual_cpu,
+            virtual_mem_size=virtual_mem_size,
+        )
+        return Response(result, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(["GET"])
 def all_services_list(request):
     from NSLifecycleManagement.models import NsInstance
