@@ -212,6 +212,69 @@ class GnbDeployer:
             'target_node_name': target_node_name,
         }
 
+    def scale_resources(self, num_virtual_cpu=None, virtual_mem_size=None):
+        """
+        Adjust CPU / memory resources of a deployed gNB by patching
+        the existing K8s Deployment's container resource limits/requests.
+        """
+        if not num_virtual_cpu and not virtual_mem_size:
+            raise ValueError('At least one of num_virtual_cpu or virtual_mem_size is required')
+
+        gnb_instance = GnbInstance.objects.filter(gnbInstanceName=self.gnb_name).last()
+        if gnb_instance is None:
+            raise Exception(f'GnbInstance "{self.gnb_name}" not found')
+
+        runtime_prefix = self._build_runtime_prefix(gnb_instance)
+
+        # Read current deployment to get container names
+        deployment = self.apps_v1.read_namespaced_deployment(
+            name=runtime_prefix,
+            namespace=self.namespace,
+        )
+
+        resource_patch = {}
+        if num_virtual_cpu:
+            resource_patch['cpu'] = num_virtual_cpu
+        if virtual_mem_size:
+            resource_patch['memory'] = virtual_mem_size
+
+        containers_patch = [
+            {
+                'name': c.name,
+                'resources': {
+                    'requests': resource_patch,
+                    'limits': resource_patch,
+                },
+            }
+            for c in deployment.spec.template.spec.containers
+        ]
+
+        patch_body = {
+            'spec': {
+                'template': {
+                    'spec': {
+                        'containers': containers_patch,
+                    }
+                }
+            }
+        }
+
+        try:
+            self.apps_v1.patch_namespaced_deployment(
+                name=runtime_prefix,
+                namespace=self.namespace,
+                body=patch_body,
+            )
+        except client.exceptions.ApiException as e:
+            raise Exception(f'Failed to patch gNB deployment {runtime_prefix}: {e.reason}')
+
+        return {
+            'gnb_instance_id': str(gnb_instance.id),
+            'gnb_instance_name': gnb_instance.gnbInstanceName,
+            'deployment_name': runtime_prefix,
+            'resources': resource_patch,
+        }
+
     def undeploy(self):
         """從 Kubernetes 刪除 gNB"""
         try:

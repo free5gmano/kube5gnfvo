@@ -111,11 +111,15 @@ class AlarmEvent(object):
         if instance_type == 'vnf':
             ns_instance_id, ns_instance_link = self.managed_object(instance)
             faulty_id = str(instance.id)
+            # 取出第一個 NsInstance ID 供 Agent 做 supervision 查詢用
+            ns_ids = json.loads(ns_instance_id)
+            ns_info_id = ns_ids[0] if ns_ids else None
         else:
             # gNB / UE 沒有 NsInstance 關聯，直接用 instance 自己當 managedObject
             ns_instance_id = json.dumps([str(instance.id)])
             ns_instance_link = json.dumps([f'/{instance_type}/v1/instances/{instance.id}'])
             faulty_id = str(instance.id)
+            ns_info_id = None
 
         check = self._time_check(ns_instance_id, faulty_id)
         if not check:
@@ -129,6 +133,7 @@ class AlarmEvent(object):
         notification_payload = json.dumps({
             'instance_type': instance_type,
             'ns_instance_id': faulty_id,
+            'ns_info_id': ns_info_id,
             'probableCause': reason,
             'faultDetails': tagged_message,
             'faultyVnfInstanceId': faulty_id,
