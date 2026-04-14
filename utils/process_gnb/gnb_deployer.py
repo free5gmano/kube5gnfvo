@@ -148,6 +148,70 @@ class GnbDeployer:
             gnb_instance.save(update_fields=['deploymentState', 'updatedAt'])
             raise Exception(f"Failed to deploy gNB: {str(e)}")
     
+    def migrate(self, target_node_name):
+        """
+        Migrate an already-deployed gNB to a different node by patching
+        the existing K8s Deployment's nodeName.
+        """
+        if not target_node_name:
+            raise ValueError('target_node_name is required')
+
+        gnb_instance = GnbInstance.objects.filter(gnbInstanceName=self.gnb_name).last()
+        if gnb_instance is None:
+            raise Exception(f'GnbInstance "{self.gnb_name}" not found')
+
+        runtime_prefix = self._build_runtime_prefix(gnb_instance)
+
+        patch_body = {
+            'spec': {
+                'template': {
+                    'spec': {
+                        'nodeName': target_node_name,
+                    }
+                }
+            }
+        }
+        try:
+            self.apps_v1.patch_namespaced_deployment(
+                name=runtime_prefix,
+                namespace=self.namespace,
+                body=patch_body,
+            )
+        except client.exceptions.ApiException as e:
+            raise Exception(f'Failed to patch gNB deployment {runtime_prefix}: {e.reason}')
+
+        # Update stored yamlContent so future redeploys remember the new node
+        try:
+            updated_docs = []
+            for document in yaml.safe_load_all(gnb_instance.yamlContent):
+                if document is None:
+                    continue
+                if document.get('kind') == 'Deployment':
+                    template_spec = (
+                        document.setdefault('spec', {})
+                        .setdefault('template', {})
+                        .setdefault('spec', {})
+                    )
+                    template_spec['nodeName'] = target_node_name
+                updated_docs.append(document)
+            gnb_instance.yamlContent = yaml.dump_all(
+                updated_docs,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+                explicit_start=True,
+            )
+            gnb_instance.save(update_fields=['yamlContent', 'updatedAt'])
+        except Exception:
+            pass
+
+        return {
+            'gnb_instance_id': str(gnb_instance.id),
+            'gnb_instance_name': gnb_instance.gnbInstanceName,
+            'deployment_name': runtime_prefix,
+            'target_node_name': target_node_name,
+        }
+
     def undeploy(self):
         """從 Kubernetes 刪除 gNB"""
         try:

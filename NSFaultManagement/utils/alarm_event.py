@@ -47,11 +47,16 @@ class AlarmEvent(object):
         """
         Try to find a matching instance for a given pod name.
         Returns (instance, instance_type) where instance_type is 'vnf', 'gnb', or 'ue'.
+
+        Pod name patterns:
+        - VNF (5GC):  {vnf_name}-{rs_hash}-{pod_hash}
+                      → vnf_name 直接對應 VnfInstance.vnfInstanceName
+        - gNB/UE:     gnb-{uuid_short}-{rs_hash}-{pod_hash}
+                       → uuid_short 是 GnbInstance.id 的前 8 字元
+                       → 需要用 UUID 前綴比對，不是直接 name 比對
         """
         candidates = []
         if is_container:
-            # 容器 Pod name 格式: {deployment-name}-{rs-hash}-{pod-hash}
-            # 嘗試逐步縮短前綴
             pod_name_list = name.split('-')
             for i in range(1, min(len(pod_name_list), 5)):
                 candidate = '-'.join(pod_name_list[:-i])
@@ -60,21 +65,42 @@ class AlarmEvent(object):
         else:
             candidates.append(name[:-5])
 
+        # 1. 先用 name 找 VnfInstance (5GC)
         for candidate in candidates:
-            # 1. 先找 VnfInstance (5GC)
             vnf = VnfInstance.objects.filter(vnfInstanceName=candidate).last()
             if vnf:
                 return vnf, 'vnf'
-            # 2. 找 GnbInstance
+
+        # 2. gNB / UE: 用 UUID 前綴比對
+        # Pod name pattern: gnb-{first8chars}-{rs}-{pod} or ue-{first8chars}-{rs}-{pod}
+        if is_container and name:
+            parts = name.split('-')
+            if len(parts) >= 2:
+                # e.g., "gnb-128f9281-574d479467-4p9bp" → prefix="gnb", uuid_short="128f9281"
+                prefix = parts[0]
+                uuid_short = parts[1]
+
+                if prefix == 'gnb' and GnbInstance is not None:
+                    for gnb in GnbInstance.objects.all():
+                        if str(gnb.id).startswith(uuid_short):
+                            return gnb, 'gnb'
+
+                if prefix == 'ue' and UeInstance is not None:
+                    for ue in UeInstance.objects.all():
+                        if str(ue.id).startswith(uuid_short):
+                            return ue, 'ue'
+
+        # 3. Fallback: 直接用 name 比對 gnb/ue (如果使用者部署時給了特殊名字)
+        for candidate in candidates:
             if GnbInstance is not None:
                 gnb = GnbInstance.objects.filter(gnbInstanceName=candidate).last()
                 if gnb:
                     return gnb, 'gnb'
-            # 3. 找 UeInstance
             if UeInstance is not None:
                 ue = UeInstance.objects.filter(ueInstanceName=candidate).last()
                 if ue:
                     return ue, 'ue'
+
         return None, None
 
     def create_alarm(self, name: str, reason: str, message: str, is_container: bool):
@@ -99,10 +125,15 @@ class AlarmEvent(object):
             ns_instance_id,
             '{} Instance({}) crashed'.format(instance_type.upper(), ns_instance_id),
         )
+
+        # 在 faultDetails 開頭加上 [instance_type] 標記讓 Agent 能區分
+        # 例如: "[gnb] Pod bound to non-existent node: test"
+        tagged_message = f'[{instance_type}] {message}' if message else f'[{instance_type}]'
+
         alarm = Alarm.objects.create(
             **{'managedObjectId': ns_instance_id,
                'probableCause': reason,
-               'faultDetails': message})
+               'faultDetails': tagged_message})
 
         AlarmLinks.objects.create(
             _links=alarm,

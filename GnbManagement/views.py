@@ -127,6 +127,36 @@ def gnb_instance_detail(request, gnb_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["POST"])
+def gnb_instance_migrate(request, gnb_id):
+    """
+    Migrate a deployed gNB to a different node.
+    Body: { "target_node_name": "edge" }
+    """
+    try:
+        gnb_instance = GnbInstance.objects.get(id=gnb_id)
+    except GnbInstance.DoesNotExist:
+        return Response({"error": "gNB instance not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    target_node_name = (request.data or {}).get("target_node_name", "").strip()
+    if not target_node_name:
+        return Response(
+            {"error": "target_node_name is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        deployer = GnbDeployer(
+            gnb_name=gnb_instance.gnbInstanceName,
+            namespace=gnb_instance.namespace,
+            yaml_content=gnb_instance.yamlContent,
+        )
+        result = deployer.migrate(target_node_name=target_node_name)
+        return Response(result, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(["GET"])
 def all_services_list(request):
     from NSLifecycleManagement.models import NsInstance

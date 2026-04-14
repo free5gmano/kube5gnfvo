@@ -14,6 +14,7 @@
 #    under the License.
 import queue
 import threading
+import time
 from datetime import datetime
 from functools import partial
 from NSFaultManagement.utils.alarm_event import AlarmEvent
@@ -21,6 +22,10 @@ from VIMManagement.utils.base_kubernetes import BaseKubernetes
 from utils.etcd_client.etcd_client import EtcdClient
 
 is_running = False
+
+# Cache known node names (refresh every 30 seconds)
+_KNOWN_NODES_CACHE = {'nodes': set(), 'refreshed_at': 0.0}
+_KNOWN_NODES_TTL = 30
 
 
 class MonitorDeployment(BaseKubernetes):
@@ -120,21 +125,36 @@ class MonitorDeployment(BaseKubernetes):
 
                 if _type in ('MODIFIED', 'ADDED') and 'deletionTimestamp' not in _metadata:
 
-                    # Case A: Pending + Unschedulable → 排程失敗
+                    # Case A: Pending → 排程失敗（兩種情況）
                     if _phase == 'Pending':
+                        # A1: scheduler 試過但所有節點都不行
                         conditions = _status.get('conditions') or []
+                        handled = False
                         for cond in conditions:
                             if (cond.get('type') == 'PodScheduled'
                                     and cond.get('status') == 'False'
                                     and cond.get('reason') == 'Unschedulable'):
-                                # event-driven 收到，事件原因附在 condition.message
                                 self.alarm.create_alarm(
                                     _name,
                                     'Unschedulable',
                                     cond.get('message') or 'Pod cannot be scheduled',
                                     True,
                                 )
+                                handled = True
                                 break
+
+                        # A2: spec.nodeName 指向不存在的節點
+                        # (K8s 在 nodeName 已設時會跳過 scheduler，所以沒有 PodScheduled condition)
+                        if not handled:
+                            spec = event['object'].get('spec', {})
+                            bound_node = spec.get('nodeName') or ''
+                            if bound_node and not self._is_known_node(bound_node):
+                                self.alarm.create_alarm(
+                                    _name,
+                                    'Unschedulable',
+                                    f"Pod bound to non-existent node: {bound_node}. This node is not in the cluster.",
+                                    True,
+                                )
 
                     # Case B: 容器 crash → 抓真正的終止原因
                     # 不只看 CrashLoopBackOff (要等 5+ 次 restart 才會出現)
@@ -183,6 +203,19 @@ class MonitorDeployment(BaseKubernetes):
     def pod_crash_event(self, instance_name, pod_name):
         self.etcd_client.set_deploy_name(instance_name=instance_name, pod_name=pod_name)
         self.etcd_client.release_pod_ip_address()
+
+    def _is_known_node(self, node_name: str) -> bool:
+        """Check if node_name exists in the cluster. Cached for 30s."""
+        now = time.time()
+        if now - _KNOWN_NODES_CACHE['refreshed_at'] > _KNOWN_NODES_TTL:
+            try:
+                nodes = self.core_v1.list_node()
+                _KNOWN_NODES_CACHE['nodes'] = {n.metadata.name for n in nodes.items}
+                _KNOWN_NODES_CACHE['refreshed_at'] = now
+            except Exception:
+                # API 壞了無法驗證 → 假設節點存在，避免亂發 alarm
+                return True
+        return node_name in _KNOWN_NODES_CACHE['nodes']
 
     def watch_specific_deployment(self, container_instance_name, vm_instance_name, _status, events):
         _queue = queue.Queue()
