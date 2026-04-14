@@ -68,10 +68,28 @@ class NSFaultSubscriptionViewSet(viewsets.ModelViewSet):
             raise APIException(detail='nsInstanceIds needs list type',
                                code=status.HTTP_409_CONFLICT)
 
+        # 允許訂閱 5GC NsInstance 或 gNB / UE 的 instance id
+        try:
+            from GnbManagement.models import GnbInstance, UeInstance
+        except ImportError:
+            GnbInstance = None
+            UeInstance = None
+
         for ns_id in ns_instance_id:
-            ns_instance = NsInstance.objects.filter(id=uuid.UUID(ns_id)).last()
-            if not ns_instance:
-                raise APIException(detail='Network Service Instance not found',
+            try:
+                uid = uuid.UUID(ns_id)
+            except (ValueError, TypeError):
+                raise APIException(detail=f'Invalid UUID: {ns_id}',
+                                   code=status.HTTP_400_BAD_REQUEST)
+
+            found = NsInstance.objects.filter(id=uid).last()
+            if not found and GnbInstance is not None:
+                found = GnbInstance.objects.filter(id=uid).last()
+            if not found and UeInstance is not None:
+                found = UeInstance.objects.filter(id=uid).last()
+
+            if not found:
+                raise APIException(detail='Network Service / gNB / UE instance not found',
                                    code=status.HTTP_404_NOT_FOUND)
 
         request.data['filter']['nsInstanceSubscriptionFilter']['nsInstanceIds'] = json.dumps(ns_instance_id)

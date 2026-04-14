@@ -126,9 +126,9 @@ class AlarmEvent(object):
             '{} Instance({}) crashed'.format(instance_type.upper(), ns_instance_id),
         )
 
-        # 在 faultDetails 開頭加上 [instance_type] 標記讓 Agent 能區分
-        # 例如: "[gnb] Pod bound to non-existent node: test"
-        tagged_message = f'[{instance_type}] {message}' if message else f'[{instance_type}]'
+        # 在 faultDetails 開頭加上 type= 標記讓 Agent 能區分 vnf/gnb/ue
+        # 不能用 [gnb] 這種格式因為 format_tools.py 會把開頭有 [ 的字串當 JSON parse
+        tagged_message = f'type={instance_type}; {message}' if message else f'type={instance_type}'
 
         alarm = Alarm.objects.create(
             **{'managedObjectId': ns_instance_id,
