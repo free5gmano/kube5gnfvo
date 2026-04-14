@@ -121,14 +121,20 @@ class AlarmEvent(object):
         if not check:
             return
 
-        self.kafka_notification.notify(
-            ns_instance_id,
-            '{} Instance({}) crashed'.format(instance_type.upper(), ns_instance_id),
-        )
-
         # 在 faultDetails 開頭加上 type= 標記讓 Agent 能區分 vnf/gnb/ue
         # 不能用 [gnb] 這種格式因為 format_tools.py 會把開頭有 [ 的字串當 JSON parse
         tagged_message = f'type={instance_type}; {message}' if message else f'type={instance_type}'
+
+        # Kafka notification 帶完整 alarm 詳情 (JSON 格式)，webhook 端就不用再打 API
+        notification_payload = json.dumps({
+            'instance_type': instance_type,
+            'ns_instance_id': faulty_id,
+            'probableCause': reason,
+            'faultDetails': tagged_message,
+            'faultyVnfInstanceId': faulty_id,
+            'perceivedSeverity': 'CRITICAL',
+        })
+        self.kafka_notification.notify(ns_instance_id, notification_payload)
 
         alarm = Alarm.objects.create(
             **{'managedObjectId': ns_instance_id,
