@@ -1,6 +1,0 @@
-
-metadata:
-vnf_product_name: pcf
-vnf_provider_id: Intent-Based AI Agent System
-vnf_package_version: 1.0
-vnf_release_date_time: 2026-04-05T17:33:17+08:00

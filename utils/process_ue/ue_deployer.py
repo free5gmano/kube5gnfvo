@@ -14,11 +14,33 @@
 #    under the License.
 
 import copy
+import time
 import yaml
 
 from kubernetes import client, config
 
 from GnbManagement.models import UeInstance
+
+
+READY_TIMEOUT_SECONDS = 120
+POLL_INTERVAL_SECONDS = 3
+FAILED_WAITING_REASONS = {
+    'CrashLoopBackOff',
+    'CreateContainerConfigError',
+    'CreateContainerError',
+    'ErrImagePull',
+    'ImageInspectError',
+    'ImagePullBackOff',
+    'InvalidImageName',
+    'RunContainerError',
+    'Unschedulable',
+}
+FAILED_TERMINATED_REASONS = {
+    'ContainerCannotRun',
+    'DeadlineExceeded',
+    'Error',
+    'OOMKilled',
+}
 
 
 class UeDeployer:
@@ -43,6 +65,121 @@ class UeDeployer:
         if not short_id:
             raise ValueError('Failed to derive runtime id for UE instance')
         return f'ue-{short_id}'
+
+    def _list_runtime_pods(self, runtime_prefix):
+        response = self.core_v1.list_namespaced_pod(
+            namespace=self.namespace,
+            label_selector=f'app={runtime_prefix}',
+        )
+        return response.items or []
+
+    def _get_pod_failure_reason(self, pods):
+        for pod in pods:
+            pod_name = getattr(getattr(pod, 'metadata', None), 'name', 'unknown-pod')
+            pod_status = getattr(pod, 'status', None)
+            pod_phase = getattr(pod_status, 'phase', '')
+
+            if pod_phase == 'Failed':
+                return f'Pod {pod_name} entered Failed phase'
+
+            for condition in getattr(pod_status, 'conditions', None) or []:
+                if (
+                    getattr(condition, 'type', '') == 'PodScheduled'
+                    and getattr(condition, 'status', '') == 'False'
+                    and getattr(condition, 'reason', '') == 'Unschedulable'
+                ):
+                    return getattr(condition, 'message', '') or f'Pod {pod_name} is unschedulable'
+
+            container_statuses = list(getattr(pod_status, 'init_container_statuses', None) or [])
+            container_statuses += list(getattr(pod_status, 'container_statuses', None) or [])
+
+            for container_status in container_statuses:
+                container_name = getattr(container_status, 'name', pod_name)
+                state = getattr(container_status, 'state', None)
+                last_state = getattr(container_status, 'last_state', None)
+                waiting = getattr(state, 'waiting', None)
+                terminated = getattr(state, 'terminated', None)
+                last_terminated = getattr(last_state, 'terminated', None)
+
+                if waiting and getattr(waiting, 'reason', '') in FAILED_WAITING_REASONS:
+                    message = getattr(waiting, 'message', '') or getattr(waiting, 'reason', '')
+                    return f'Container {container_name} is waiting: {message}'
+
+                if terminated and getattr(terminated, 'reason', '') in FAILED_TERMINATED_REASONS:
+                    message = getattr(terminated, 'message', '') or getattr(terminated, 'reason', '')
+                    return f'Container {container_name} terminated: {message}'
+
+                if last_terminated and getattr(last_terminated, 'reason', '') in FAILED_TERMINATED_REASONS:
+                    message = getattr(last_terminated, 'message', '') or getattr(last_terminated, 'reason', '')
+                    return f'Container {container_name} crashed previously: {message}'
+
+        return None
+
+    def refresh_runtime_state(self, ue_instance):
+        runtime_prefix = self._build_runtime_prefix(ue_instance)
+        next_state = 'NOT_INSTANTIATED'
+        failure_reason = None
+
+        try:
+            deployment = self.apps_v1.read_namespaced_deployment_status(
+                name=runtime_prefix,
+                namespace=self.namespace,
+            )
+        except client.exceptions.ApiException as exc:
+            if exc.status != 404:
+                raise
+        else:
+            next_state = 'INSTANTIATING'
+            deployment_spec = getattr(deployment, 'spec', None)
+            deployment_status = getattr(deployment, 'status', None)
+            desired_replicas = getattr(deployment_spec, 'replicas', 0) or 0
+            ready_replicas = getattr(deployment_status, 'ready_replicas', 0) or 0
+            available_replicas = getattr(deployment_status, 'available_replicas', 0) or 0
+            updated_replicas = getattr(deployment_status, 'updated_replicas', 0) or 0
+
+            for condition in getattr(deployment_status, 'conditions', None) or []:
+                if (
+                    getattr(condition, 'type', '') == 'Progressing'
+                    and getattr(condition, 'status', '') == 'False'
+                ):
+                    failure_reason = getattr(condition, 'message', '') or getattr(condition, 'reason', '')
+                    next_state = 'FAILED'
+                    break
+
+            if next_state != 'FAILED':
+                pods = self._list_runtime_pods(runtime_prefix)
+                failure_reason = self._get_pod_failure_reason(pods)
+                if failure_reason:
+                    next_state = 'FAILED'
+                elif (
+                    desired_replicas > 0
+                    and ready_replicas >= desired_replicas
+                    and available_replicas >= desired_replicas
+                    and updated_replicas >= desired_replicas
+                ):
+                    next_state = 'INSTANTIATED'
+
+        if ue_instance.deploymentState != next_state:
+            ue_instance.deploymentState = next_state
+            ue_instance.save(update_fields=['deploymentState', 'updatedAt'])
+
+        return next_state, failure_reason
+
+    def wait_until_runtime_ready(
+        self,
+        ue_instance,
+        timeout_seconds=READY_TIMEOUT_SECONDS,
+        poll_interval_seconds=POLL_INTERVAL_SECONDS,
+    ):
+        deadline = time.monotonic() + timeout_seconds
+
+        while True:
+            current_state, failure_reason = self.refresh_runtime_state(ue_instance)
+            if current_state in {'INSTANTIATED', 'FAILED'}:
+                return current_state, failure_reason
+            if time.monotonic() >= deadline:
+                return current_state, failure_reason
+            time.sleep(poll_interval_seconds)
 
     def _render_runtime_docs(self, ue_instance):
         runtime_prefix = self._build_runtime_prefix(ue_instance)
@@ -132,8 +269,9 @@ class UeDeployer:
                 elif kind == 'Deployment':
                     self._deploy_deployment(doc)
 
-            ue_instance.deploymentState = 'INSTANTIATED'
-            ue_instance.save(update_fields=['deploymentState', 'updatedAt'])
+            final_state, failure_reason = self.wait_until_runtime_ready(ue_instance)
+            if final_state == 'FAILED':
+                raise RuntimeError(failure_reason or 'UE pod failed before becoming ready')
             return ue_instance
         except Exception as e:
             ue_instance.deploymentState = 'FAILED'
