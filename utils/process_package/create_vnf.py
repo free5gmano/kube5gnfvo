@@ -59,7 +59,8 @@ class CreateService(ProcessVNFInstance):
         client = ServiceClient(
             instance_name=vdu.attributes['name_of_nodeport'], namespace=vdu.attributes['namespace'],
             node_port=vdu.attributes['nodeport'], protocol=vdu.attributes['nodeport_protocol'],
-            target_port=vdu.attributes['targetport'], service_type='NodePort')
+            target_port=vdu.attributes['targetport'], selector_name=vdu.attributes['name_of_service'],
+            service_type='NodePort')
         client.handle_create_or_update()
 
     def process_persistent_volume_claim(self, **kwargs):

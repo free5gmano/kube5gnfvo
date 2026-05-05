@@ -101,7 +101,7 @@ class NSLifecycleManagementViewSet(viewsets.ModelViewSet):
             
             nsd_info_id = str(ns_descriptors_info.id)
             request.data['nsdInfoId'] = nsd_info_id
-            request.data['nsInstanceName'] = request.data['nsName']
+            request.data['nsInstanceName'] = request.data.get('nsInstanceName') or request.data.get('nsName')
             request.data['nsInstanceDescription'] = request.data['nsDescription']
             request.data['nsdId'] = request.data['nsdId']
             request.data['vnfInstance'] = get_vnf_instance(vnf_pkg_Ids)

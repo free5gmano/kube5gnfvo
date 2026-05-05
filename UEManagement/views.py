@@ -6,10 +6,26 @@ from UEManagement.serializers import UeInstanceSerializer, UeInstanceCreateSeria
 from utils.process_ue.ue_deployer import UeDeployer
 
 
+def _sync_runtime_state(ue_instance):
+    try:
+        deployer = UeDeployer(
+            ue_name=ue_instance.ueInstanceName,
+            namespace=ue_instance.namespace,
+            yaml_content=ue_instance.yamlContent or "",
+            gnb_service_name=ue_instance.gnbServiceName,
+        )
+        deployer.refresh_runtime_state(ue_instance)
+    except Exception:
+        pass
+    return ue_instance
+
+
 @api_view(["GET", "POST"])
 def ue_instances_list(request):
     if request.method == "GET":
-        instances = UeInstance.objects.all().order_by("-createdAt")
+        instances = list(UeInstance.objects.all().order_by("-createdAt"))
+        for instance in instances:
+            _sync_runtime_state(instance)
         serializer = UeInstanceSerializer(instances, many=True)
         return Response(serializer.data)
 
@@ -44,6 +60,7 @@ def ue_instance_detail(request, ue_id):
         return Response({"error": "UE instance not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
+        _sync_runtime_state(ue_instance)
         return Response(UeInstanceSerializer(ue_instance).data)
 
     try:

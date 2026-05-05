@@ -8,6 +8,7 @@ class ServiceClient(KubernetesApi):
         self.protocol = kwargs['protocol'] if 'protocol' in kwargs else None
         self.target_port = kwargs['target_port'] if 'target_port' in kwargs else None
         self.node_port = kwargs['node_port'] if 'node_port' in kwargs else None
+        self.selector_name = kwargs['selector_name'] if 'selector_name' in kwargs else None
         super().__init__(*args, **kwargs)
 
     def read_resource(self, **kwargs):
@@ -26,14 +27,15 @@ class ServiceClient(KubernetesApi):
     def instance_specific_resource(self, **kwargs):
         service = self.kubernetes_client.V1Service(api_version="v1", kind="Service")
         service_match_label={"app":self.instance_name}
+        selector_name = self.selector_name or self.instance_name
         service.metadata = self.kubernetes_client.V1ObjectMeta(name=self.instance_name,labels=service_match_label)
         if self.node_port != None :
             #use cluster_ip='None' is not create Node_Port
             service.spec = self.kubernetes_client.V1ServiceSpec(
-                selector={'app': self.instance_name}, ports=self._get_service_node_port(), type=self.service_type)
+                selector={'app': selector_name}, ports=self._get_service_node_port(), type=self.service_type)
         else:
             service.spec = self.kubernetes_client.V1ServiceSpec(
-                cluster_ip='None', selector={'app': self.instance_name}, ports=self._get_service_port(), type=self.service_type)
+                cluster_ip='None', selector={'app': selector_name}, ports=self._get_service_port(), type=self.service_type)
         return service
 
     def _get_service_port(self):
@@ -73,9 +75,10 @@ class ServiceClient(KubernetesApi):
         target_port_value = self.target_port[index] if isinstance(self.target_port, list) and index < len(self.target_port) else self.target_port
         
         # Build service port with optional nodePort (None means auto-assign)
+        effective_port = port if port is not None else target_port_value
         service_port_kwargs = {
-            'name': '{}{}'.format(self.instance_name[-10:], port),
-            'port': int(port),
+            'name': '{}{}'.format(self.instance_name[-10:], effective_port),
+            'port': int(effective_port),
             'protocol': protocol
         }
         
