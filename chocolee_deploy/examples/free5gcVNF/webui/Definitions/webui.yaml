@@ -37,7 +37,7 @@ topology_template:
       attributes:
         namespace: default
         name_of_nodeport: free5gc-webui-nodeport
-        nodeport: [31111]
+        nodeport: [null]
         nodeport_protocol: [TCP]
         virtualport: [5000]
         stateful_application: 0

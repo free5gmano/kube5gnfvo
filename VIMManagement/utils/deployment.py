@@ -30,7 +30,7 @@ class DeploymentClient(KubernetesApi):
             self.ports = kwargs['ports']
             self.name_of_service = kwargs['name_of_service']
         elif kwargs.get('nodeport') and kwargs.get('name_of_nodeport'):
-            self.ports = kwargs['nodeport']
+            self.ports = kwargs.get('targetport') or kwargs['nodeport']
             self.name_of_service = kwargs['name_of_nodeport']
         self.path_of_storage = kwargs['path_of_storage'] if 'path_of_storage' in kwargs else None
         self.command = kwargs['command'] if 'command' in kwargs else None
@@ -141,6 +141,8 @@ class DeploymentClient(KubernetesApi):
         if self.ports and self.name_of_service:
             protocols = self.protocol if isinstance(self.protocol, list) else [self.protocol] * len(self.ports)
             for i, port in enumerate(self.ports):
+                if port in [None, '']:
+                    continue
                 protocol = protocols[i] if i < len(protocols) else 'TCP'
                 container_ports.append(self._get_container_port(port, protocol))
 
