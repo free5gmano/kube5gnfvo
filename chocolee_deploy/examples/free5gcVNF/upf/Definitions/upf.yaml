@@ -47,6 +47,8 @@ topology_template:
         replicas: 1
         command: [bash, -c, sleep 10s && /setup-uptun.sh eth0 && ./bin/upf]
         tun: /dev/net/tun
+        # Optional override: defaults to http://10.0.0.208:1024/api/security/webhook
+        # suricata_alert_api_url: http://your-api.example/alerts
 
     CP1:
       type: tosca.nodes.nfv.Cpd

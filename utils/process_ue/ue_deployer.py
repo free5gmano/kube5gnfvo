@@ -184,6 +184,7 @@ class UeDeployer:
     def _render_runtime_docs(self, ue_instance):
         runtime_prefix = self._build_runtime_prefix(ue_instance)
         rendered_docs = []
+        config_map_name_mapping = {}
 
         for document in yaml.safe_load_all(self.yaml_content):
             if document is None:
@@ -194,7 +195,11 @@ class UeDeployer:
             metadata = manifest.setdefault('metadata', {})
 
             if kind == 'ConfigMap':
-                metadata['name'] = f'{runtime_prefix}-config'
+                original_name = metadata.get('name')
+                rendered_config_name = f'{runtime_prefix}-config'
+                metadata['name'] = rendered_config_name
+                if original_name:
+                    config_map_name_mapping[original_name] = rendered_config_name
                 data = manifest.get('data') or {}
                 for key, value in list(data.items()):
                     if not isinstance(value, str) or key != 'free5gc-ue.yaml':
@@ -230,7 +235,10 @@ class UeDeployer:
 
                 for volume in template_spec.get('volumes', []) or []:
                     config_map = volume.get('configMap')
-                    if config_map and config_map.get('name') == 'ueransim-ue-configmap':
+                    config_map_name = config_map.get('name') if config_map else None
+                    if config_map_name in config_map_name_mapping:
+                        config_map['name'] = config_map_name_mapping[config_map_name]
+                    elif config_map_name and 'ueransim-ue-configmap' in str(config_map_name):
                         config_map['name'] = f'{runtime_prefix}-config'
 
                 for container in template_spec.get('containers', []) or []:

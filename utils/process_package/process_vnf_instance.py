@@ -22,6 +22,17 @@ from utils.file_manipulation import walk_file
 from utils.process_package.base_process import BaseProcess
 
 
+SURICATA_UPF_RULES_CONFIG_MAP = 'suricata-upf-rules'
+SURICATA_ALERT_API_URL_ENV = 'SURICATA_ALERT_API_URL'
+SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.208:1024/api/security/webhook'
+SURICATA_UPF_RULES = """alert tcp 60.60.0.0/24 any -> any any (msg:"UPF UE TCP SYN observed"; flags:S; classtype:attempted-recon; sid:1100001; rev:3;)
+alert icmp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible ICMP flood"; detection_filter:track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1100002; rev:2;)
+alert udp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible UDP flood"; detection_filter:track by_src, count 200, seconds 1; classtype:attempted-dos; sid:1100003; rev:2;)
+alert tcp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible NULL scan"; flags:0; classtype:attempted-recon; sid:1100004; rev:1;)
+alert tcp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible XMAS scan"; flags:FPU; classtype:attempted-recon; sid:1100005; rev:1;)
+"""
+
+
 class ProcessVNFInstance(BaseProcess):
 
     def __init__(self, package_id, vnf_instance_name=None):
@@ -162,6 +173,10 @@ class ProcessVNFInstance(BaseProcess):
             vdu_info.update(vdu.properties)
             vdu_info.update(vdu.attributes)
             vdu_info.update(vdu.capabilities)
+            if self._is_upf_vdu(vdu, vdu_info):
+                vdu_info['suricata_upf_enabled'] = True
+                vdu_info['suricata_upf_rules_config_map'] = SURICATA_UPF_RULES_CONFIG_MAP
+                vdu_info['suricata_alert_api_url'] = self._get_suricata_alert_api_url(vdu_info)
             # kwargs override (for migration via scale endpoint)
             override_node_name = kwargs.get('target_node_name')
             effective_node_name = override_node_name or self.target_node_name
@@ -229,6 +244,46 @@ class ProcessVNFInstance(BaseProcess):
             vnf_info['config_map_mount_path'] = deploy_path
         else:
             vnf_info['config_map_mount_path'] = None
+
+    def _is_upf_vdu(self, vdu, vdu_info):
+        candidates = [
+            self.vnf_instance_name,
+            vdu_info.get('name'),
+            vdu_info.get('name_of_service'),
+            vdu_info.get('name_of_nodeport'),
+            vdu_info.get('image'),
+        ]
+
+        command = vdu_info.get('command')
+        if isinstance(command, list):
+            candidates.extend(command)
+        elif command:
+            candidates.append(command)
+
+        sw_image_data = vdu.properties.get('sw_image_data') if getattr(vdu, 'properties', None) else None
+        if isinstance(sw_image_data, dict):
+            candidates.extend([
+                sw_image_data.get('name'),
+                sw_image_data.get('provider'),
+                sw_image_data.get('version'),
+            ])
+
+        for value in candidates:
+            if value and 'upf' in str(value).lower():
+                return True
+
+        return False
+
+    def _get_suricata_alert_api_url(self, vdu_info):
+        api_url = vdu_info.get('suricata_alert_api_url')
+        if api_url:
+            return api_url
+
+        api_url = self.package_metadata.get('suricata_alert_api_url')
+        if api_url:
+            return api_url
+
+        return os.getenv(SURICATA_ALERT_API_URL_ENV, SURICATA_ALERT_API_URL_DEFAULT)
 
     @abstractmethod
     def process_persistent_volume(self, **kwargs):

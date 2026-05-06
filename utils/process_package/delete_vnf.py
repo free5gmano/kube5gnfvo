@@ -22,7 +22,7 @@ from VIMManagement.utils.persistent_volume import PersistentVolumeClient
 from VIMManagement.utils.persistent_volume_claim import PersistentVolumeClaimClient
 from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
-from utils.process_package.process_vnf_instance import ProcessVNFInstance
+from utils.process_package.process_vnf_instance import ProcessVNFInstance, SURICATA_UPF_RULES_CONFIG_MAP
 from utils.file_manipulation import remove_file
 from os_ma_nfvo import settings
 
@@ -46,6 +46,11 @@ class DeleteService(ProcessVNFInstance):
             client = VirtualMachineInstance(**data)
 
         client.handle_delete()
+        if kwargs['vdu_info'].get('suricata_upf_enabled'):
+            client = ConfigMapClient(
+                namespace=kwargs['vdu_info']['namespace'],
+                config_file_name=SURICATA_UPF_RULES_CONFIG_MAP)
+            client.handle_delete()
 
     def process_service(self, **kwargs):
         client = ServiceClient(

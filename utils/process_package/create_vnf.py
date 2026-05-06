@@ -24,7 +24,11 @@ from VIMManagement.utils.service import ServiceClient
 from VIMManagement.utils.virtual_machine_instance import VirtualMachineInstance
 from os_ma_nfvo import settings
 from utils.file_manipulation import create_dir, mount_dir
-from utils.process_package.process_vnf_instance import ProcessVNFInstance
+from utils.process_package.process_vnf_instance import (
+    ProcessVNFInstance,
+    SURICATA_UPF_RULES,
+    SURICATA_UPF_RULES_CONFIG_MAP,
+)
 
 
 class CreateService(ProcessVNFInstance):
@@ -39,6 +43,14 @@ class CreateService(ProcessVNFInstance):
             client.handle_create_or_update()
 
     def process_deployment(self, **kwargs):
+        if kwargs['vdu_info'].get('suricata_upf_enabled'):
+            client = ConfigMapClient(
+                instance_name=kwargs['vdu_info']['instance_name'],
+                namespace=kwargs['vdu_info']['namespace'],
+                config_file_name=SURICATA_UPF_RULES_CONFIG_MAP,
+                config_file_content=SURICATA_UPF_RULES)
+            client.handle_create_or_update()
+
         if kwargs['vdu_info']['diskFormat'] == 'raw':
             client = DeploymentClient(**kwargs['vdu_info'])
         else:

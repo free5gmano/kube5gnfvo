@@ -17,6 +17,8 @@ import os
 from VIMManagement.utils.kubernetes_api import KubernetesApi
 from utils.tosca_paser.cp_template import SR_IOV
 
+SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.208:1024/api/security/webhook'
+
 
 class DeploymentClient(KubernetesApi):
     def __init__(self, *args, **kwargs):
@@ -41,6 +43,13 @@ class DeploymentClient(KubernetesApi):
         self.network_name = kwargs['network_name'] if 'network_name' in kwargs else None
         self.labels = kwargs['labels'] if 'labels' in kwargs and isinstance(kwargs['labels'], dict) else None
         self.node_name = kwargs['node_name'] if 'node_name' in kwargs else None
+        self.suricata_upf_enabled = kwargs['suricata_upf_enabled'] if 'suricata_upf_enabled' in kwargs else False
+        self.suricata_upf_rules_config_map = kwargs.get('suricata_upf_rules_config_map', 'suricata-upf-rules')
+        self.suricata_alert_api_url = (
+            kwargs.get('suricata_alert_api_url')
+            or os.getenv('SURICATA_ALERT_API_URL')
+            or SURICATA_ALERT_API_URL_DEFAULT
+        )
         self.sriov_type = 'intel.com/intel_sriov_netdevice'
 
         super().__init__(*args, **kwargs)
@@ -158,8 +167,15 @@ class DeploymentClient(KubernetesApi):
         container = self.kubernetes_client.V1Container(
             name=self.instance_name, image=self.image, volume_mounts=volume_mounts, command=self.command,
             env=env, resources=resource, security_context=security_context, ports=container_ports)
+
+        containers = [container]
+        if self.suricata_upf_enabled:
+            containers.append(self._get_suricata_upf_container())
+            containers.append(self._get_suricata_alert_forwarder_container())
+            volumes.extend(self._get_suricata_upf_volumes())
+
         pod_spec = self.kubernetes_client.V1PodSpec(
-            containers=[container], volumes=volumes, init_containers=init_containers,
+            containers=containers, volumes=volumes, init_containers=init_containers,
             node_name=self.node_name if self.node_name else None)
         return self.kubernetes_client.V1DeploymentSpec(
             replicas=self.replicas,
@@ -182,3 +198,84 @@ class DeploymentClient(KubernetesApi):
     def _get_volume(self, name, config_map=None, host_path=None, persistent_volume_claim=None):
         return self.kubernetes_client.V1Volume(
             name=name, config_map=config_map, host_path=host_path, persistent_volume_claim=persistent_volume_claim)
+
+    def _get_suricata_upf_container(self):
+        rules_volume_name = 'suricata-upf-rules'
+        logs_volume_name = 'suricata-upf-logs'
+        command = (
+            'mkdir -p /var/log/suricata; '
+            'while [ ! -d /sys/class/net/upfgtp ]; do '
+            'echo waiting for upfgtp; sleep 1; '
+            'done; '
+            'exec suricata -i upfgtp -k none -l /var/log/suricata '
+            '-S /etc/suricata/rules/local.rules'
+        )
+
+        return self.kubernetes_client.V1Container(
+            name='suricata-upf',
+            image='jasonish/suricata:latest',
+            image_pull_policy='IfNotPresent',
+            command=['/bin/sh', '-c', command],
+            volume_mounts=[
+                self.kubernetes_client.V1VolumeMount(
+                    name=rules_volume_name,
+                    mount_path='/etc/suricata/rules/local.rules',
+                    sub_path=self.suricata_upf_rules_config_map,
+                    read_only=True),
+                self.kubernetes_client.V1VolumeMount(
+                    name=logs_volume_name,
+                    mount_path='/var/log/suricata')
+            ],
+            resources=self.kubernetes_client.V1ResourceRequirements(
+                requests={'cpu': '100m', 'memory': '256Mi'},
+                limits={'cpu': '1', 'memory': '1Gi'}),
+            security_context=self.kubernetes_client.V1SecurityContext(
+                privileged=True,
+                capabilities=self.kubernetes_client.V1Capabilities(
+                    add=['NET_ADMIN', 'NET_RAW', 'SYS_NICE'])))
+
+    def _get_suricata_upf_volumes(self):
+        return [
+            self.kubernetes_client.V1Volume(
+                name='suricata-upf-rules',
+                config_map=self.kubernetes_client.V1ConfigMapVolumeSource(
+                    name=self.suricata_upf_rules_config_map)),
+            self.kubernetes_client.V1Volume(
+                name='suricata-upf-logs',
+                empty_dir=self.kubernetes_client.V1EmptyDirVolumeSource())
+        ]
+
+    def _get_suricata_alert_forwarder_container(self):
+        command = (
+            'set -u; '
+            'log=/var/log/suricata/eve.json; '
+            'while [ ! -f "$log" ]; do echo waiting for "$log"; sleep 1; done; '
+            'tail -n 0 -F "$log" | while IFS= read -r line; do '
+            'echo "$line" | grep -q \'"event_type":"alert"\' || continue; '
+            'if [ -z "${SURICATA_ALERT_API_URL:-}" ]; then '
+            'echo "SURICATA_ALERT_API_URL is not set; dropping alert"; continue; '
+            'fi; '
+            'printf "%s" "$line" | curl -sS -m 5 -X POST "$SURICATA_ALERT_API_URL" '
+            '-H "Content-Type: application/json" --data-binary @- >/tmp/suricata-forwarder.out 2>&1 || '
+            'cat /tmp/suricata-forwarder.out; '
+            'done'
+        )
+
+        return self.kubernetes_client.V1Container(
+            name='suricata-alert-forwarder',
+            image='curlimages/curl:8.10.1',
+            image_pull_policy='IfNotPresent',
+            command=['/bin/sh', '-c', command],
+            env=[
+                self.kubernetes_client.V1EnvVar(
+                    name='SURICATA_ALERT_API_URL',
+                    value=self.suricata_alert_api_url)
+            ],
+            volume_mounts=[
+                self.kubernetes_client.V1VolumeMount(
+                    name='suricata-upf-logs',
+                    mount_path='/var/log/suricata')
+            ],
+            resources=self.kubernetes_client.V1ResourceRequirements(
+                requests={'cpu': '20m', 'memory': '32Mi'},
+                limits={'cpu': '100m', 'memory': '128Mi'}))
