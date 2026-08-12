@@ -36,7 +36,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NFS_PATH = os.getcwd() + '/os_ma_nfvo_nfs/'
 VOLUME_PATH = os.getcwd() + '/os_ma_nfvo_volume/'
 DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', 'password')
-DATABASE_HOST = os.getenv('DATABASE_HOST', 'localhost')
+DATABASE_HOST = os.getenv('DATABASE_HOST', '10.1.0.47')
 DATABASE_PORT = os.getenv('DATABASE_PORT', '30306')
 DATABASE_NAME = os.getenv('DATABASE_NAME', 'kube5gnfvo')
 DATABASE_USER = os.getenv('DATABASE_USER', 'root')
@@ -173,5 +173,5 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# 設置默認的 primary key 類型為 BigAutoField
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Keep legacy migrations using AutoField instead of generating BigAutoField alters.
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

@@ -24,7 +24,7 @@ from utils.process_package.base_process import BaseProcess
 
 SURICATA_UPF_RULES_CONFIG_MAP = 'suricata-upf-rules'
 SURICATA_ALERT_API_URL_ENV = 'SURICATA_ALERT_API_URL'
-SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.208:1024/api/security/webhook'
+SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.200:1024/api/security/webhook'
 SURICATA_UPF_RULES = """alert tcp 60.60.0.0/24 any -> any any (msg:"UPF UE TCP SYN observed"; flags:S; classtype:attempted-recon; sid:1100001; rev:3;)
 alert icmp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible ICMP flood"; detection_filter:track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1100002; rev:2;)
 alert udp 60.60.0.0/24 any -> any any (msg:"UPF UE Possible UDP flood"; detection_filter:track by_src, count 200, seconds 1; classtype:attempted-dos; sid:1100003; rev:2;)

@@ -17,7 +17,9 @@ import os
 from VIMManagement.utils.kubernetes_api import KubernetesApi
 from utils.tosca_paser.cp_template import SR_IOV
 
-SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.208:1024/api/security/webhook'
+SURICATA_ALERT_API_URL_DEFAULT = 'http://10.0.0.200:1024/api/security/webhook'
+SURICATA_ALERT_FORWARDER_IMAGE_DEFAULT = 'suricata-alert-forwarder:latest'
+SURICATA_EVE_LOG_DEFAULT = '/var/log/suricata/eve.json'
 
 
 class DeploymentClient(KubernetesApi):
@@ -50,6 +52,12 @@ class DeploymentClient(KubernetesApi):
             or os.getenv('SURICATA_ALERT_API_URL')
             or SURICATA_ALERT_API_URL_DEFAULT
         )
+        self.suricata_alert_forwarder_image = (
+            kwargs.get('suricata_alert_forwarder_image')
+            or os.getenv('SURICATA_ALERT_FORWARDER_IMAGE')
+            or SURICATA_ALERT_FORWARDER_IMAGE_DEFAULT
+        )
+        self.suricata_eve_log = kwargs.get('suricata_eve_log') or SURICATA_EVE_LOG_DEFAULT
         self.sriov_type = 'intel.com/intel_sriov_netdevice'
 
         super().__init__(*args, **kwargs)
@@ -246,27 +254,14 @@ class DeploymentClient(KubernetesApi):
         ]
 
     def _get_suricata_alert_forwarder_container(self):
-        command = (
-            'set -u; '
-            'log=/var/log/suricata/eve.json; '
-            'while [ ! -f "$log" ]; do echo waiting for "$log"; sleep 1; done; '
-            'tail -n 0 -F "$log" | while IFS= read -r line; do '
-            'echo "$line" | grep -q \'"event_type":"alert"\' || continue; '
-            'if [ -z "${SURICATA_ALERT_API_URL:-}" ]; then '
-            'echo "SURICATA_ALERT_API_URL is not set; dropping alert"; continue; '
-            'fi; '
-            'printf "%s" "$line" | curl -sS -m 5 -X POST "$SURICATA_ALERT_API_URL" '
-            '-H "Content-Type: application/json" --data-binary @- >/tmp/suricata-forwarder.out 2>&1 || '
-            'cat /tmp/suricata-forwarder.out; '
-            'done'
-        )
-
         return self.kubernetes_client.V1Container(
             name='suricata-alert-forwarder',
-            image='curlimages/curl:8.10.1',
+            image=self.suricata_alert_forwarder_image,
             image_pull_policy='IfNotPresent',
-            command=['/bin/sh', '-c', command],
             env=[
+                self.kubernetes_client.V1EnvVar(
+                    name='SURICATA_EVE_LOG',
+                    value=self.suricata_eve_log),
                 self.kubernetes_client.V1EnvVar(
                     name='SURICATA_ALERT_API_URL',
                     value=self.suricata_alert_api_url)

@@ -43,7 +43,30 @@ class AlarmEvent(object):
 
         return json.dumps(ns_instance_id), json.dumps(ns_instance_link)
 
-    def _find_instance_by_pod_name(self, name: str, is_container: bool):
+    def _find_instance_by_runtime_prefix(self, prefix: str):
+        if not prefix:
+            return None, None
+
+        parts = prefix.split('-')
+        if len(parts) < 2:
+            return None, None
+
+        resource_type = parts[0]
+        uuid_short = parts[1]
+
+        if resource_type == 'gnb' and GnbInstance is not None:
+            for gnb in GnbInstance.objects.all():
+                if str(gnb.id).startswith(uuid_short):
+                    return gnb, 'gnb'
+
+        if resource_type == 'ue' and UeInstance is not None:
+            for ue in UeInstance.objects.all():
+                if str(ue.id).startswith(uuid_short):
+                    return ue, 'ue'
+
+        return None, None
+
+    def _find_instance_by_pod_name(self, name: str, is_container: bool, labels=None):
         """
         Try to find a matching instance for a given pod name.
         Returns (instance, instance_type) where instance_type is 'vnf', 'gnb', or 'ue'.
@@ -54,7 +77,23 @@ class AlarmEvent(object):
         - gNB/UE:     gnb-{uuid_short}-{rs_hash}-{pod_hash}
                        → uuid_short 是 GnbInstance.id 的前 8 字元
                        → 需要用 UUID 前綴比對，不是直接 name 比對
+        - gNB/UE:     app label is gnb-{uuid_short} or ue-{uuid_short}
+                       → supports generic deployment names like ueransim-gnb-deployment
         """
+        labels = labels or {}
+
+        # gNB/UE deployments may have generic pod names, so prefer stable labels.
+        saw_runtime_label = False
+        for label_key in ('app', 'app.kubernetes.io/name', 'instance', 'nfvo/runtime-prefix'):
+            label_value = labels.get(label_key)
+            if label_value and (label_value.startswith('gnb-') or label_value.startswith('ue-')):
+                saw_runtime_label = True
+            instance, instance_type = self._find_instance_by_runtime_prefix(label_value)
+            if instance is not None:
+                return instance, instance_type
+        if saw_runtime_label:
+            return None, None
+
         candidates = []
         if is_container:
             pod_name_list = name.split('-')
@@ -74,21 +113,9 @@ class AlarmEvent(object):
         # 2. gNB / UE: 用 UUID 前綴比對
         # Pod name pattern: gnb-{first8chars}-{rs}-{pod} or ue-{first8chars}-{rs}-{pod}
         if is_container and name:
-            parts = name.split('-')
-            if len(parts) >= 2:
-                # e.g., "gnb-128f9281-574d479467-4p9bp" → prefix="gnb", uuid_short="128f9281"
-                prefix = parts[0]
-                uuid_short = parts[1]
-
-                if prefix == 'gnb' and GnbInstance is not None:
-                    for gnb in GnbInstance.objects.all():
-                        if str(gnb.id).startswith(uuid_short):
-                            return gnb, 'gnb'
-
-                if prefix == 'ue' and UeInstance is not None:
-                    for ue in UeInstance.objects.all():
-                        if str(ue.id).startswith(uuid_short):
-                            return ue, 'ue'
+            instance, instance_type = self._find_instance_by_runtime_prefix(name)
+            if instance is not None:
+                return instance, instance_type
 
         # 3. Fallback: 直接用 name 比對 gnb/ue (如果使用者部署時給了特殊名字)
         for candidate in candidates:
@@ -103,8 +130,8 @@ class AlarmEvent(object):
 
         return None, None
 
-    def create_alarm(self, name: str, reason: str, message: str, is_container: bool):
-        instance, instance_type = self._find_instance_by_pod_name(name, is_container)
+    def create_alarm(self, name: str, reason: str, message: str, is_container: bool, labels=None):
+        instance, instance_type = self._find_instance_by_pod_name(name, is_container, labels=labels)
         if instance is None:
             return
 

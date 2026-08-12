@@ -66,6 +66,180 @@ class UeDeployer:
             raise ValueError('Failed to derive runtime id for UE instance')
         return f'ue-{short_id}'
 
+    def _get_default_ue_config(self):
+        return {
+            'supi': 'imsi-208930000000001',
+            'mcc': '208',
+            'mnc': '93',
+            'protectionScheme': 0,
+            'homeNetworkPublicKey': '5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650',
+            'homeNetworkPublicKeyId': 1,
+            'routingIndicator': '0000',
+            'key': '8baf473f2f8fd09487cccbd7097c6862',
+            'op': '8e27b6af0e692e750f32667a3b14605d',
+            'opType': 'OPC',
+            'amf': '8000',
+            'imei': '356938035643803',
+            'imeiSv': '4370816125816151',
+            'tunNetmask': '255.255.255.0',
+            'gnbSearchList': ['127.0.0.1'],
+            'uacAic': {
+                'mps': False,
+                'mcs': False,
+            },
+            'uacAcc': {
+                'normalClass': 0,
+                'class11': False,
+                'class12': False,
+                'class13': False,
+                'class14': False,
+                'class15': False,
+            },
+            'sessions': [
+                {
+                    'type': 'IPv4',
+                    'apn': 'internet',
+                    'slice': {
+                        'sst': 0x01,
+                        'sd': 0x010203,
+                    },
+                },
+            ],
+            'configured-nssai': [
+                {
+                    'sst': 0x01,
+                    'sd': 0x010203,
+                },
+            ],
+            'default-nssai': [
+                {
+                    'sst': 1,
+                    'sd': 1,
+                },
+            ],
+            'integrity': {
+                'IA1': True,
+                'IA2': True,
+                'IA3': True,
+            },
+            'ciphering': {
+                'EA1': True,
+                'EA2': True,
+                'EA3': True,
+            },
+            'integrityMaxRate': {
+                'uplink': 'full',
+                'downlink': 'full',
+            },
+        }
+
+    def _build_intent_docs(self, ue_intent, runtime_prefix):
+        ue_config = self._get_default_ue_config()
+        ue_config.update(ue_intent or {})
+        ue_config.pop('replicas', None)
+
+        if self.gnb_service_name:
+            ue_config['gnbSearchList'] = [self.gnb_service_name]
+
+        replicas = int((ue_intent or {}).get('replicas') or 1)
+        config_map_name = f'{runtime_prefix}-config'
+
+        return [
+            {
+                'apiVersion': 'v1',
+                'kind': 'ConfigMap',
+                'metadata': {
+                    'name': config_map_name,
+                },
+                'data': {
+                    'free5gc-ue.yaml': yaml.safe_dump(
+                        ue_config,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    ),
+                },
+            },
+            {
+                'apiVersion': 'apps/v1',
+                'kind': 'Deployment',
+                'metadata': {
+                    'name': runtime_prefix,
+                    'labels': {
+                        'app': runtime_prefix,
+                    },
+                },
+                'spec': {
+                    'replicas': replicas,
+                    'selector': {
+                        'matchLabels': {
+                            'app': runtime_prefix,
+                        },
+                    },
+                    'template': {
+                        'metadata': {
+                            'labels': {
+                                'app': runtime_prefix,
+                            },
+                        },
+                        'spec': {
+                            'containers': [
+                                {
+                                    'name': runtime_prefix,
+                                    'image': 'free5gmano/ueransim:v3.2.7',
+                                    'imagePullPolicy': 'IfNotPresent',
+                                    'securityContext': {
+                                        'privileged': True,
+                                    },
+                                    'command': ['/bin/sh'],
+                                    'args': [
+                                        '-c',
+                                        (
+                                            'cp /UERANSIM/config/free5gc-ue.yaml /tmp/ue.yaml\n'
+                                            'echo "=== UE config ==="\n'
+                                            'cat /tmp/ue.yaml\n'
+                                            './build/nr-ue -c /tmp/ue.yaml\n'
+                                        ),
+                                    ],
+                                    'volumeMounts': [
+                                        {
+                                            'name': 'ueransim-ue-conf',
+                                            'mountPath': '/UERANSIM/config/free5gc-ue.yaml',
+                                            'subPath': 'free5gc-ue.yaml',
+                                        },
+                                        {
+                                            'name': 'dev-net-tun',
+                                            'mountPath': '/dev/net/tun',
+                                        },
+                                    ],
+                                },
+                            ],
+                            'volumes': [
+                                {
+                                    'name': 'ueransim-ue-conf',
+                                    'configMap': {
+                                        'name': config_map_name,
+                                        'items': [
+                                            {
+                                                'key': 'free5gc-ue.yaml',
+                                                'path': 'free5gc-ue.yaml',
+                                            },
+                                        ],
+                                    },
+                                },
+                                {
+                                    'name': 'dev-net-tun',
+                                    'hostPath': {
+                                        'path': '/dev/net/tun',
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+        ]
+
     def _list_runtime_pods(self, runtime_prefix):
         response = self.core_v1.list_namespaced_pod(
             namespace=self.namespace,
@@ -181,15 +355,37 @@ class UeDeployer:
                 return current_state, failure_reason
             time.sleep(poll_interval_seconds)
 
+    def _normalize_yaml_content(self):
+        if not isinstance(self.yaml_content, str):
+            return self.yaml_content
+        return self.yaml_content.replace('|\\n', '|\n')
+
     def _render_runtime_docs(self, ue_instance):
         runtime_prefix = self._build_runtime_prefix(ue_instance)
         rendered_docs = []
         config_map_name_mapping = {}
+        yaml_content = self._normalize_yaml_content()
+        source_docs = [document for document in yaml.safe_load_all(yaml_content) if document is not None]
 
-        for document in yaml.safe_load_all(self.yaml_content):
-            if document is None:
-                continue
+        if (
+            len(source_docs) == 1
+            and isinstance(source_docs[0], dict)
+            and source_docs[0].get('kind') is None
+            and isinstance(source_docs[0].get('ue'), dict)
+        ):
+            rendered_docs = self._build_intent_docs(source_docs[0]['ue'], runtime_prefix)
+            if self.node_name:
+                rendered_docs[1]['spec']['template']['spec']['nodeName'] = self.node_name
+            rendered_yaml = yaml.dump_all(
+                rendered_docs,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+                explicit_start=True,
+            )
+            return rendered_docs, rendered_yaml
 
+        for document in source_docs:
             manifest = copy.deepcopy(document)
             kind = manifest.get('kind')
             metadata = manifest.setdefault('metadata', {})

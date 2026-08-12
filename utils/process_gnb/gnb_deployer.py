@@ -44,8 +44,41 @@ class GnbDeployer:
         # Kubernetes Service names must start with an alphabetic character.
         return f'gnb-{short_id}'
 
+    def _get_amf_service_address(self):
+        services = self.core_v1.list_namespaced_service(self.namespace).items
+        candidates = []
+
+        for service in services:
+            service_name = service.metadata.name
+            ports = service.spec.ports or []
+            has_ngap = any(port.port == 38412 for port in ports)
+            if service_name.startswith('amf-') and has_ngap:
+                candidates.append(service_name)
+
+        if not candidates:
+            raise ValueError(f'AMF service with NGAP port 38412 not found in namespace {self.namespace}')
+
+        return sorted(candidates)[0]
+
+    def _replace_placeholders(self, value, amf_service_address):
+        if isinstance(value, str):
+            return (
+                value
+                .replace('__AMF_SERVICE_ADDRESS__', amf_service_address)
+                .replace('\\"', '"')
+            )
+        if isinstance(value, list):
+            return [self._replace_placeholders(item, amf_service_address) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: self._replace_placeholders(item, amf_service_address)
+                for key, item in value.items()
+            }
+        return value
+
     def _render_runtime_docs(self, gnb_instance):
         runtime_prefix = self._build_runtime_prefix(gnb_instance)
+        amf_service_address = self._get_amf_service_address()
         rendered_docs = []
 
         for document in yaml.safe_load_all(self.yaml_content):
@@ -59,8 +92,12 @@ class GnbDeployer:
 
             if kind == 'ConfigMap':
                 metadata['name'] = f'{runtime_prefix}-config'
+                manifest['data'] = self._replace_placeholders(
+                    manifest.get('data') or {},
+                    amf_service_address)
 
             elif kind == 'Deployment':
+                manifest = self._replace_placeholders(manifest, amf_service_address)
                 metadata['name'] = runtime_prefix
                 labels = metadata.setdefault('labels', {})
                 labels['app'] = runtime_prefix

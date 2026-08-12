@@ -24,10 +24,10 @@ class VDUTemplate(EntityTemplate):
         ('type_of_storage', 'size_of_storage', 'path_of_storage')
     VDU_ATTRIBUTES = (NAMESPACE, REPLICAS, TUN, USER_PUBLIC_KEY, USER_NAME,
                       NAME_OF_SERVICE, IS_EXPORT_SERVICE, NAME_OF_NODEPORT,
-                      NODE_NAME, SURICATA_ALERT_API_URL) = \
+                      NODE_NAME, SURICATA_ALERT_API_URL, SURICATA_ALERT_FORWARDER_IMAGE) = \
         ('namespace', 'replicas', 'tun', 'user_public_key', 'user_name',
          'name_of_service', 'is_export_service', 'name_of_nodeport',
-         'node_name', 'suricata_alert_api_url')
+         'node_name', 'suricata_alert_api_url', 'suricata_alert_forwarder_image')
     VDU_ATTRIBUTES_DICT = (Labels) = ('labels', 'requests', 'limits')
     VDU_ATTRIBUTES_LIST = (COMMAND, ENV, PORTS, NODEPORT, TARGETPORT, PROTOCOL, NODEPORT_PROTOCOL) = ('command', 'env', 'ports', 'nodeport', 'targetport', 'protocol', 'nodeport_protocol')
     VDU_ARTIFACTS = (TYPE, FILE, DEPLOY_PATH) = ('type', 'file', 'deploy_path')

@@ -35,7 +35,8 @@ class ServiceClient(KubernetesApi):
                 selector={'app': selector_name}, ports=self._get_service_node_port(), type=self.service_type)
         else:
             service.spec = self.kubernetes_client.V1ServiceSpec(
-                cluster_ip='None', selector={'app': selector_name}, ports=self._get_service_port(), type=self.service_type)
+                cluster_ip='None', selector={'app': selector_name}, ports=self._get_service_port(),
+                publish_not_ready_addresses=True, type=self.service_type)
         return service
 
     def _get_service_port(self):
@@ -85,9 +86,9 @@ class ServiceClient(KubernetesApi):
         if target_port_value is not None:
             service_port_kwargs['target_port'] = int(target_port_value)
         
-        if node_port_value is not None:
+        if node_port_value is not None and 30000 <= int(node_port_value) <= 32767:
             service_port_kwargs['node_port'] = int(node_port_value)
-        
+
         return self.kubernetes_client.V1ServicePort(**service_port_kwargs)
 
     def _create_service_port(self, protocol, port):

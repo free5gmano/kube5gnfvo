@@ -119,6 +119,7 @@ class MonitorDeployment(BaseKubernetes):
 
                 _name = _metadata['name']
                 _namespace = _metadata.get('namespace', 'default')
+                _labels = _metadata.get('labels') or {}
                 _phase = _status.get('phase')
                 if _phase == 'Running':
                     self.pod_status[_name] = _phase
@@ -139,6 +140,7 @@ class MonitorDeployment(BaseKubernetes):
                                     'Unschedulable',
                                     cond.get('message') or 'Pod cannot be scheduled',
                                     True,
+                                    labels=_labels,
                                 )
                                 handled = True
                                 break
@@ -154,6 +156,7 @@ class MonitorDeployment(BaseKubernetes):
                                     'Unschedulable',
                                     f"Pod bound to non-existent node: {bound_node}. This node is not in the cluster.",
                                     True,
+                                    labels=_labels,
                                 )
 
                     # Case B: 容器 crash → 抓真正的終止原因
@@ -192,7 +195,7 @@ class MonitorDeployment(BaseKubernetes):
                         detail_parts.append(f"restartCount={restart_count}")
                         detail = ' | '.join(detail_parts)
 
-                        self.alarm.create_alarm(_name, reason, detail, True)
+                        self.alarm.create_alarm(_name, reason, detail, True, labels=_labels)
                         if _name in list(self.pod_status):
                             self.pod_crash_event(None, _name)
 
